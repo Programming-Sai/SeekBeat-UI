@@ -51,4 +51,4 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EAS_ACCESS_TOKEN }}
-      - run: eas deploy:promote --from-channel preview --to=production
+      - run: eas deploy:promote --from preview --to=production
