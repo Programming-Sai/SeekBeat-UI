@@ -21,7 +21,6 @@ jobs:
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          #   expo-version: false
           token: ${{ secrets.EAS_ACCESS_TOKEN }}
       - run: npm ci
       - run: npm run build
@@ -35,7 +34,7 @@ jobs:
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          expo-version: false
+          packager: npm
           token: ${{ secrets.EAS_ACCESS_TOKEN }}
       - run: npm ci
       - run: npm run build
