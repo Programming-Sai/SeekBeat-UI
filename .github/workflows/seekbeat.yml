@@ -11,10 +11,6 @@ on:
         description: "Deploy current build to Production?"
         required: false
         default: "false"
-      rollback_to_preview:
-        description: "Rollback Production to previous Preview?"
-        required: false
-        default: "false"
 
 jobs:
   preview-deploy:
@@ -42,13 +38,3 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run build:prod
-
-  rollback-prod:
-    if: github.event.inputs.rollback_to_preview == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EAS_ACCESS_TOKEN }}
-      - run: eas deploy:promote --from preview --to=production
