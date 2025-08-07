@@ -1,0 +1,51 @@
+name: Run SnapMock
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Every day at midnight
+  push:
+    branches: [sakaai]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapmock:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Check current directory
+        run: |
+          echo "Current Directory:"
+          pwd  # Print the current directory
+
+      - name: Ensure snapshots directory exists
+        run: |
+          mkdir -p ${{ github.workspace }}/snapshots  # Ensure the directory exists before SnapMock
+
+      - name: Run SnapMock
+        uses: Programming-Sai/SnapMock@v1.0.0
+        with:
+          url: "https://seekbeat.expo.app/"
+          devices: "laptop,tablet,mobile"
+          output: "${{ github.workspace }}/snapshots" # Correctly output to the snapshots directory
+
+      - name: Debug snapshot output
+        run: |
+          echo "Snapshot output contents:"
+          ls -R ${{ github.workspace }}/snapshots || echo "No snapshots directory found"  # Debug if snapshots are present
+
+      - name: Deploy to Custom Branch
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ${{ github.workspace }}/snapshots # Correctly use the directory with the snapshots
+          publish_branch: snapmock # User-specified branch
+          commit_message: "Update SnapMock screenshots [skip ci]"
+        env:
+          GIT_AUTHOR_NAME: "SnapMock Bot"
+          GIT_AUTHOR_EMAIL: "snapmock@users.noreply.github.com"
