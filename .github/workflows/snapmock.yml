@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: "0 0 * * *" # Every day at midnight
   push:
-    branches: [sakaai]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
