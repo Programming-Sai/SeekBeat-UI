@@ -3,46 +3,33 @@ import { Slot } from "expo-router";
 import { useState } from "react";
 import { View, StyleSheet } from "react-native";
 import Header from "../components/Header";
-import { ThemeProvider } from "../contexts/ThemeContext";
+import { ThemeProvider, useTheme } from "../contexts/ThemeContext";
 import { AppStorageProvider } from "../contexts/AppStorageContext";
+import NavBar from "../components/NavBar";
 
 export default function Layout() {
-  const [rightSidebarContent, setRightSidebarContent] = useState(null);
-
   return (
-    <View style={styles.container}>
-      <ThemeProvider>
-        <AppStorageProvider>
-          {/* Header */}
-          <Header />
-
-          {/* Main body with sidebars */}
-          <View style={styles.body}>
-            {/* <LeftSidebar /> */}
-
-            {/* Main content */}
-            <View style={styles.mainContent}>
-              <Slot context={{ setRightSidebarContent }} />
-            </View>
-
-            {/* <RightSidebar content={rightSidebarContent} /> */}
-          </View>
-        </AppStorageProvider>
-      </ThemeProvider>
-    </View>
+    <ThemeProvider>
+      <AppStorageProvider>
+        <LayoutContent />
+      </AppStorageProvider>
+    </ThemeProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  body: {
-    flex: 1,
-    flexDirection: "row",
-  },
-  mainContent: {
-    flex: 1,
-    backgroundColor: "#fff", // temp
-  },
-});
+function LayoutContent() {
+  const [rightSidebarContent, setRightSidebarContent] = useState(null);
+  const { theme } = useTheme();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <Header />
+      <View style={{ flex: 1, flexDirection: "row" }}>
+        <NavBar />
+        <View style={{ flex: 1 }}>
+          <Slot context={{ setRightSidebarContent }} />
+        </View>
+      </View>
+    </View>
+  );
+}

@@ -11,7 +11,6 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { HEXA, RGBA } from "../lib/colors";
 import React, { useState, useRef } from "react";
-import { SunIcon } from "./SunICon";
 import Icon from "react-native-vector-icons/Ionicons";
 
 export default function Header() {
@@ -27,7 +26,7 @@ export default function Header() {
     // Animate scale up
     Animated.timing(scaleAnim, {
       toValue: 9000, // huge scale up
-      duration: 500,
+      duration: 700,
       useNativeDriver: true,
     }).start(() => {
       // After animation ends, hide element behind by setting zIndex
@@ -35,8 +34,8 @@ export default function Header() {
 
       // Reset scale for next time (optional)
       scaleAnim.setValue(1);
+      toggleTheme();
     });
-    toggleTheme();
   };
 
   return (
@@ -46,7 +45,15 @@ export default function Header() {
       <View>
         <Link href="/">
           <Image
-            style={[styles.image, { tintColor: theme.text }]}
+            style={[
+              styles.image,
+              {
+                tintColor:
+                  themeMode === "dark"
+                    ? accentColors[accentKey].light
+                    : accentColors[accentKey].dark,
+              },
+            ]}
             source={require("../assets/icon.png")}
           />
         </Link>
@@ -59,7 +66,8 @@ export default function Header() {
             styles.searchInput,
             {
               color: theme.text,
-              backgroundColor: RGBA(theme.text, 0.1),
+              backgroundColor: RGBA(theme.background, 1),
+              border: "1px solid " + RGBA(accentColors[accentKey].dark, 0.5),
             },
             focused && {
               borderColor: accentColors[accentKey].dark, // your gold color
@@ -93,11 +101,11 @@ export default function Header() {
           style={[
             {
               backgroundColor: HEXA(theme.text, 1),
-              width: 1,
-              height: 1,
+              width: "3px",
+              height: "3px",
               position: "absolute",
-              top: -8,
-              right: -8,
+              top: 12,
+              right: 12,
               borderRadius: 100,
               transform: [{ scale: scaleAnim }],
               zIndex: hidden ? -100 : 10,
@@ -132,7 +140,7 @@ const styles = StyleSheet.create({
     height: 30,
   },
   searchInput: {
-    height: 30,
+    height: 40,
     width: "70vh",
     paddingHorizontal: 20,
     paddingVertical: 10,
