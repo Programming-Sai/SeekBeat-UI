@@ -1,9 +1,18 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Link } from "expo-router";
 import { useTheme } from "../contexts/ThemeContext";
+import { useRightSidebar } from "../contexts/SidebarContext";
+import { useEffect } from "react";
 
 export default function Home() {
+  const { setRightSidebarKey } = useRightSidebar();
+
   const { theme } = useTheme();
+
+  useEffect(() => {
+    setRightSidebarKey("home");
+    return () => setRightSidebarKey(null);
+  }, []);
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={[styles.title, { color: theme.text }]}>🎧 SeekBeat</Text>

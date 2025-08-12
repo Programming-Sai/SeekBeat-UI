@@ -1,14 +1,7 @@
 import { Link, usePathname } from "expo-router";
 import React from "react";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
-import Icon from "react-native-vector-icons/Ionicons";
 import { HEXA } from "../lib/colors";
 
 // icon components (ensure they are default exports or adjust imports)
@@ -62,15 +55,15 @@ export default function NavBar() {
             href={page.pageLink}
             style={{ width: "100%" }}
             key={page.pageName}
+            title={page.pageName}
           >
             <Pressable
               style={({ hovered, pressed }) => [
                 styles.navLinkBox,
                 {
-                  backgroundColor: HEXA(
-                    theme.accent,
-                    themeMode === "light" ? 0.1 : 0.05
-                  ),
+                  backgroundColor: isActive
+                    ? HEXA(theme.accent, 0.2)
+                    : HEXA(theme.accent, themeMode === "light" ? 0.1 : 0.05),
                 },
                 hovered && { backgroundColor: HEXA(theme.accent, 0.2) },
               ]}
