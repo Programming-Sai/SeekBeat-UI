@@ -53,7 +53,11 @@ export default function NavBar() {
         return (
           <Link
             href={page.pageLink}
-            style={{ width: "100%" }}
+            style={{
+              width: "100%",
+              borderRightColor: theme.accent,
+              borderRightWidth: isActive ? 5 : 0,
+            }}
             key={page.pageName}
             title={page.pageName}
           >

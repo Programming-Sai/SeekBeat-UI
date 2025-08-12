@@ -24,7 +24,7 @@ export function ThemeProvider({
 
   // themeMode can be: 'light' | 'dark' | 'system'
   // if 'system' -> derive from useColorScheme()
-  const [themeMode, setThemeMode] = useState("system");
+  const [themeMode, setThemeMode] = useState("dark");
   const [accentKey, setAccentKey] = useState(defaultAccent);
 
   // load persisted
