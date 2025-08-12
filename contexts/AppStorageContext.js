@@ -9,65 +9,109 @@ const AppStorageContext = createContext(null);
 export function AppStorageProvider({ children }) {
   const [isReady, setReady] = useState(false);
 
-  // data shape:
-  // { downloads: [{id, title, path, size, addedAt}], searchHistory: [query,..], playlists: {...}, ... }
-  const [data, setData] = useState({
+  // default shape
+  const defaultData = {
     downloads: [],
-    searchHistory: [],
+    searchHistory: [], // array of { term, when }
     playlists: {},
-    // add more keys as needed
-  });
+    // new flag - whether to save incoming searches
+    saveSearchHistory: true,
+  };
+
+  const [data, setData] = useState(defaultData);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const stored = await storageGet(STORAGE_KEY, null);
-      if (!mounted) return;
-      if (stored) setData(stored);
-      setReady(true);
+      try {
+        const stored = await storageGet(STORAGE_KEY, null);
+        if (!mounted) return;
+        // merge stored with defaults to avoid missing keys
+        if (stored) setData({ ...defaultData, ...stored });
+        setReady(true);
+      } catch (e) {
+        console.warn("Failed to load app data", e);
+        if (mounted) {
+          setData(defaultData);
+          setReady(true);
+        }
+      }
     })();
     return () => (mounted = false);
   }, []);
 
-  // persist on change (debounce if you expect many changes)
+  // persist on change (simple immediate persist; debounce if many writes)
   useEffect(() => {
     if (!isReady) return;
     storageSet(STORAGE_KEY, data);
   }, [data, isReady]);
 
-  // helpers
+  /* ---------- helpers ---------- */
+
   const addDownload = (item) =>
-    setData((s) => ({ ...s, downloads: [item, ...s.downloads] }));
+    setData((s) => ({ ...s, downloads: [item, ...(s.downloads || [])] }));
+
   const removeDownload = (id) =>
     setData((s) => ({
       ...s,
-      downloads: s.downloads.filter((d) => d.id !== id),
+      downloads: (s.downloads || []).filter((d) => d.id !== id),
     }));
 
-  const pushSearch = (query) =>
+  // pushSearch respects saveSearchHistory flag
+  const pushSearch = (term) =>
     setData((s) => {
-      const arr = [query, ...s.searchHistory.filter((q) => q !== query)].slice(
-        0,
-        50
+      if (!s.saveSearchHistory) return s; // do nothing when disabled
+
+      const trimmed = typeof term === "string" ? term.trim() : "";
+      if (!trimmed) return s;
+
+      // dedupe (case-insensitive) and keep newest first
+      const normalized = trimmed.toLowerCase();
+      const filtered = (s.searchHistory || []).filter(
+        (q) => q.term.toLowerCase() !== normalized
       );
-      return { ...s, searchHistory: arr };
+
+      const MAX = 200;
+      const next = [{ term: trimmed, when: Date.now() }, ...filtered].slice(
+        0,
+        MAX
+      );
+
+      return { ...s, searchHistory: next };
     });
 
   const clearSearchHistory = () =>
     setData((s) => ({ ...s, searchHistory: [] }));
 
+  // new: toggle the save flag. We do NOT auto-clear history when disabling; that is UX choice.
+  const setSaveSearchHistory = (enabled) =>
+    setData((s) => ({ ...s, saveSearchHistory: !!enabled }));
+
   const setPlaylists = (playlists) => setData((s) => ({ ...s, playlists }));
+
+  // convenience getters
+  const getSearchHistory = () => data.searchHistory || [];
+  const getSaveSearchHistory = () => !!data.saveSearchHistory;
 
   return (
     <AppStorageContext.Provider
       value={{
         data,
         isReady,
+        // downloads
         addDownload,
         removeDownload,
+        // search
         pushSearch,
         clearSearchHistory,
+        getSearchHistory,
+        // save flag
+        saveSearchHistory: getSaveSearchHistory(),
+        setSaveSearchHistory,
+        // playlists
         setPlaylists,
+        // (optionally) setter for raw data
+        setData,
       }}
     >
       {children}

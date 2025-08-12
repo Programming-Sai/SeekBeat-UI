@@ -11,6 +11,7 @@ export default function ColorPicker({ colors, setColor, theme }) {
       <View style={[styles.colorsContainer]}>
         {colors.map((c) => (
           <Pressable
+            title={c.key}
             key={c.key}
             onPress={() => setColor(c.key)} // pass the key, not the hex
             accessibilityLabel={`Choose ${c.key}`}
