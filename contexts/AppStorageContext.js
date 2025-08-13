@@ -16,6 +16,7 @@ export function AppStorageProvider({ children }) {
     playlists: {},
     // new flag - whether to save incoming searches
     saveSearchHistory: true,
+    viewMode: "list",
   };
 
   const [data, setData] = useState(defaultData);
@@ -87,6 +88,11 @@ export function AppStorageProvider({ children }) {
   const setSaveSearchHistory = (enabled) =>
     setData((s) => ({ ...s, saveSearchHistory: !!enabled }));
 
+  const setViewMode = () =>
+    setData((s) => ({ ...s, viewMode: viewMode === "list" ? "grid" : "list" }));
+
+  const getViewMode = () => data.viewMode || "list";
+
   const setPlaylists = (playlists) => setData((s) => ({ ...s, playlists }));
 
   // convenience getters
@@ -108,6 +114,9 @@ export function AppStorageProvider({ children }) {
         // save flag
         saveSearchHistory: getSaveSearchHistory(),
         setSaveSearchHistory,
+        // View Mode
+        viewMode: data.viewMode,
+        setViewMode,
         // playlists
         setPlaylists,
         // (optionally) setter for raw data

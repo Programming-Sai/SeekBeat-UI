@@ -67,6 +67,43 @@ export default function Settings() {
             </View>
           </View>
         </View>
+
+        <Text style={[styles.heading, { color: theme.text }]}>
+          Search Results Display
+        </Text>
+        <View style={[styles.settingBox]}>
+          <View
+            style={[
+              styles.settingBoxContainer,
+              { border: `1px solid ${theme.textSecondary}`, padding: 20 },
+            ]}
+          >
+            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
+              <Text style={[styles.settingHeading, { color: theme.text }]}>
+                Set Search Results Display View
+              </Text>
+              <Text
+                style={[
+                  styles.settingSecondary,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Pick the accent used across the app (buttons, highlights, and
+                active states).
+              </Text>
+            </View>
+            <View style={styles.settingDescSet}>
+              <Switch
+                value={saveSearchHistory}
+                setValue={(v) => setSaveSearchHistory(v)}
+                theme={themeMode}
+                accent={theme.accent}
+                accentLight={accentColors[accentKey].light}
+                accentDark={accentColors[accentKey].dark}
+              />{" "}
+            </View>
+          </View>
+        </View>
         <Text style={[styles.heading, { color: theme.text }]}>
           Search & History
         </Text>

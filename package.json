@@ -17,6 +17,7 @@
     "expo": "~53.0.20",
     "expo-router": "~5.1.4",
     "expo-status-bar": "~2.2.3",
+    "he": "^1.2.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
