@@ -80,7 +80,7 @@ export default function Header() {
           placeholder="Search ..."
         /> */}
         <View style={styles.searchInput}>
-          <BulkSearchInput />
+          <BulkSearchInput placeholder="Search By Url, Title, Uploader...  " />
         </View>
       </View>
       <View style={styles.themeToggleBox}>
