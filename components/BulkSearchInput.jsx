@@ -119,32 +119,42 @@ export default function BulkSearchInput({
     [maxFields]
   );
 
-  const handleSubmit = useCallback(() => {
-    const values = fields
-      .map((f) => f.value.trim())
-      .filter(Boolean)
-      .slice(0, maxFields);
+  const handleSubmit = useCallback(
+    (clearBulk = false) => {
+      const values = fields
+        .map((f) => f.value.trim())
+        .filter(Boolean)
+        .slice(0, maxFields);
 
-    if (values.length === 0) return;
+      if (values.length === 0) return;
 
-    // prefer context functions if available
-    if (values.length === 1) {
-      // single search
-      if (typeof submitSearch === "function") {
-        submitSearch(values[0]);
-      } else if (typeof onSubmit === "function") {
-        onSubmit(values);
+      // prefer context functions if available
+      if (values.length === 1) {
+        // single search
+        if (typeof submitSearch === "function") {
+          submitSearch(values[0]);
+        } else if (typeof onSubmit === "function") {
+          onSubmit(values);
+        }
+      } else {
+        // bulk search
+        if (typeof submitBulk === "function") {
+          submitBulk(values);
+        } else if (typeof onSubmit === "function") {
+          onSubmit(values);
+        }
       }
-    } else {
-      // bulk search
-      if (typeof submitBulk === "function") {
-        submitBulk(values);
-      } else if (typeof onSubmit === "function") {
-        onSubmit(values);
+      Keyboard.dismiss();
+      if (clearBulk) {
+        setFields((prev) => {
+          // ensure at least one field remains
+          const next = prev.filter((f, i) => i === 0);
+          return next.length ? next : [{ id: idCounter++, value: "" }];
+        });
       }
-    }
-    Keyboard.dismiss();
-  }, [fields, maxFields, onSubmit]);
+    },
+    [fields, maxFields, onSubmit]
+  );
 
   const handleFieldSubmitEditing = useCallback(
     (index) => {
@@ -208,7 +218,7 @@ export default function BulkSearchInput({
               placeholderTextColor={theme.textSecondary}
               onChangeText={(text) => updateField(f.id, text)}
               onSubmitEditing={() =>
-                idx === 0 ? handleSubmit() : handleFieldSubmitEditing(idx)
+                idx === 0 ? handleSubmit(true) : handleFieldSubmitEditing(idx)
               }
               returnKeyType="next"
               blurOnSubmit={idx === 0}

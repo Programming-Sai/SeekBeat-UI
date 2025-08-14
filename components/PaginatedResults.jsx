@@ -22,7 +22,6 @@ export default function PaginatedResults({
   pageSize = 10,
   viewMode = "list",
   onPageChange,
-  style,
 }) {
   const { theme, themeMode, accentKey, accentColors } = useTheme();
   const [page, setPage] = useState(1);
@@ -254,7 +253,7 @@ export default function PaginatedResults({
 
                 <View style={[styles?.detailsGrid]}>
                   <View style={[styles?.titleDurationBoxGrid]}>
-                    <View style={[styles.uploaderTimeBox]}>
+                    <View style={[styles.uploaderTimeBox, { width: "100%" }]}>
                       <Text
                         style={[
                           {
@@ -265,11 +264,12 @@ export default function PaginatedResults({
                                     getPrimaryTextColor(
                                       accentColors[accentKey].dark
                                     ),
-                                    0.6
+                                    0.8
                                   ),
-                            width: "100%",
                           },
                         ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
                       >
                         {song.uploader}
                       </Text>
@@ -283,7 +283,7 @@ export default function PaginatedResults({
                                     accentColors[accentKey].dark
                                   ),
                             textAlign: "right",
-                            width: "100%",
+                            width: "fit-content",
                           },
                         ]}
                       >
@@ -378,80 +378,84 @@ export default function PaginatedResults({
       </View>
 
       {/* PAGINATION CONTROLS (keeps styling minimal & consistent) */}
-      <View
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginVertical: 50,
-          gap: 8,
-        }}
-      >
-        <View>
-          <Text style={{ color: theme.textSecondary, padding: 10 }}>
-            Showing {Math.min((page - 1) * pageSize + 1, total)} -{" "}
-            {Math.min(page * pageSize, total)} of {total}
-          </Text>
+      {songs && (
+        <View
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginVertical: 50,
+            gap: 8,
+          }}
+        >
+          <View>
+            <Text style={{ color: theme.textSecondary, padding: 10 }}>
+              Showing {Math.min((page - 1) * pageSize + 1, total)} -{" "}
+              {Math.min(page * pageSize, total)} of {total}
+            </Text>
+          </View>
+
+          <View style={{ display: "flex", flexDirection: "row", gap: 8 }}>
+            <Pressable onPress={() => goto(1)} disabled={page === 1}>
+              <Text
+                style={{
+                  color: page === 1 ? theme.textSecondary : theme.accent,
+                  cursor: page === 1 ? "not-allowed" : "pointer",
+                  padding: 10,
+                }}
+              >
+                First
+              </Text>
+            </Pressable>
+
+            <Pressable onPress={goPrev} disabled={page === 1}>
+              <Text
+                style={{
+                  color: page === 1 ? theme.textSecondary : theme.accent,
+                  cursor: page === 1 ? "not-allowed" : "pointer",
+                  padding: 10,
+                }}
+              >
+                Prev
+              </Text>
+            </Pressable>
+
+            <Text style={{ color: theme.text, padding: 10 }}>
+              {page} / {totalPages}
+            </Text>
+
+            <Pressable onPress={goNext} disabled={page === totalPages}>
+              <Text
+                style={{
+                  color:
+                    page === totalPages ? theme.textSecondary : theme.accent,
+                  cursor: page === totalPages ? "not-allowed" : "pointer",
+                  padding: 10,
+                }}
+              >
+                Next
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => goto(totalPages)}
+              disabled={page === totalPages}
+            >
+              <Text
+                style={{
+                  color:
+                    page === totalPages ? theme.textSecondary : theme.accent,
+                  cursor: page === totalPages ? "not-allowed" : "pointer",
+                  padding: 10,
+                }}
+              >
+                Last
+              </Text>
+            </Pressable>
+          </View>
         </View>
-
-        <View style={{ display: "flex", flexDirection: "row", gap: 8 }}>
-          <Pressable onPress={() => goto(1)} disabled={page === 1}>
-            <Text
-              style={{
-                color: page === 1 ? theme.textSecondary : theme.accent,
-                cursor: page === 1 ? "not-allowed" : "pointer",
-                padding: 10,
-              }}
-            >
-              First
-            </Text>
-          </Pressable>
-
-          <Pressable onPress={goPrev} disabled={page === 1}>
-            <Text
-              style={{
-                color: page === 1 ? theme.textSecondary : theme.accent,
-                cursor: page === 1 ? "not-allowed" : "pointer",
-                padding: 10,
-              }}
-            >
-              Prev
-            </Text>
-          </Pressable>
-
-          <Text style={{ color: theme.text, padding: 10 }}>
-            {page} / {totalPages}
-          </Text>
-
-          <Pressable onPress={goNext} disabled={page === totalPages}>
-            <Text
-              style={{
-                color: page === totalPages ? theme.textSecondary : theme.accent,
-                cursor: page === totalPages ? "not-allowed" : "pointer",
-                padding: 10,
-              }}
-            >
-              Next
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => goto(totalPages)}
-            disabled={page === totalPages}
-          >
-            <Text
-              style={{
-                color: page === totalPages ? theme.textSecondary : theme.accent,
-                cursor: page === totalPages ? "not-allowed" : "pointer",
-                padding: 10,
-              }}
-            >
-              Last
-            </Text>
-          </Pressable>
-        </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -536,13 +540,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     gap: 10,
+    width: "100%",
   },
   uploaderTimeBox: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     flexDirection: "row",
-    width: "100%",
+    // width: "100%",
   },
   buttonsBox: {
     display: "flex",

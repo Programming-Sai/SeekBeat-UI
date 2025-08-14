@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
-import PaginatedResults from "./ResultsCard";
+import PaginatedResults from "./PaginatedResults";
 
 export default function AccordionGroup({
   block, // the bulk response block: { search_term, results, count }

@@ -1,0 +1,60 @@
+import React from "react";
+import { Skeleton } from "./Skeleton";
+import { useTheme } from "../contexts/ThemeContext";
+import { HEXA } from "../lib/colors";
+import { View } from "react-native";
+
+export default function LoadingSkeleton({ viewMode, displayType }) {
+  const { theme, themeMode, accentKey, accentColors } = useTheme();
+
+  return (
+    <View
+      style={[
+        displayType === "bulk"
+          ? {
+              width: "100%",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexDirection: "column",
+              gap: 30,
+            }
+          : viewMode === "list"
+          ? {
+              width: "100%",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexDirection: "column",
+              gap: 30,
+            }
+          : {
+              width: "100%",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 30,
+            },
+      ]}
+    >
+      {Array.from({ length: displayType === "bulk" ? 3 : 6 }).map((_, id) => (
+        <Skeleton
+          key={id}
+          backgroundColor={HEXA(theme.accent, 0.1)}
+          highlightColor={HEXA(
+            themeMode === "dark"
+              ? accentColors[accentKey].light
+              : accentColors[accentKey].dark,
+            0.3
+          )}
+          width={displayType === "bulk" ? 800 : viewMode === "list" ? 800 : 250}
+          height={displayType === "bulk" ? 50 : viewMode === "list" ? 210 : 380}
+          borderRadius={10}
+          //   borderRadius={20}
+        />
+      ))}
+    </View>
+  );
+}
