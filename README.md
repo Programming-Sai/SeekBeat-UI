@@ -16,7 +16,7 @@
   </a>
 </p>
 
-## [Preview](https://seekbeat--d03igm0ymx.expo.app/)
+## [Preview](https://seekbeat--u8clp7sb13.expo.app/)
 
 # SeekBeat-UI
 

@@ -12,6 +12,7 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { getPrimaryTextColor, HEXA } from "../lib/colors";
 import Icon from "react-native-vector-icons/Ionicons";
+import { useSearch } from "../contexts/SearchContext";
 
 let idCounter = 1;
 
@@ -22,6 +23,7 @@ export default function BulkSearchInput({
   secondaryPlaceHolder = "Add Search Term...",
 }) {
   const { theme, accentKey, accentColors } = useTheme();
+  const { submitSearch, submitBulk } = useSearch(); // get functions from context
 
   // fields: array of { id, value }
   const [fields, setFields] = useState(() => [{ id: idCounter++, value: "" }]);
@@ -122,8 +124,25 @@ export default function BulkSearchInput({
       .map((f) => f.value.trim())
       .filter(Boolean)
       .slice(0, maxFields);
-    onSubmit(values);
-    // optionally dismiss keyboard
+
+    if (values.length === 0) return;
+
+    // prefer context functions if available
+    if (values.length === 1) {
+      // single search
+      if (typeof submitSearch === "function") {
+        submitSearch(values[0]);
+      } else if (typeof onSubmit === "function") {
+        onSubmit(values);
+      }
+    } else {
+      // bulk search
+      if (typeof submitBulk === "function") {
+        submitBulk(values);
+      } else if (typeof onSubmit === "function") {
+        onSubmit(values);
+      }
+    }
     Keyboard.dismiss();
   }, [fields, maxFields, onSubmit]);
 
@@ -189,9 +208,7 @@ export default function BulkSearchInput({
               placeholderTextColor={theme.textSecondary}
               onChangeText={(text) => updateField(f.id, text)}
               onSubmitEditing={() =>
-                idx === 0
-                  ? onSubmit(fields[0].value)
-                  : handleFieldSubmitEditing(idx)
+                idx === 0 ? handleSubmit() : handleFieldSubmitEditing(idx)
               }
               returnKeyType="next"
               blurOnSubmit={idx === 0}

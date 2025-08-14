@@ -8,13 +8,16 @@ import { AppStorageProvider } from "../contexts/AppStorageContext";
 import NavBar from "../components/NavBar";
 import SideBar from "../components/SideBar";
 import { SidebarProvider } from "../contexts/SidebarContext";
+import { SearchProvider } from "../contexts/SearchContext";
 
 export default function Layout() {
   return (
     <ThemeProvider>
       <AppStorageProvider>
         <SidebarProvider>
-          <LayoutContent />
+          <SearchProvider>
+            <LayoutContent />
+          </SearchProvider>
         </SidebarProvider>
       </AppStorageProvider>
     </ThemeProvider>
