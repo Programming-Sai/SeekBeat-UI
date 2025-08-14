@@ -94,8 +94,7 @@ export default function Settings() {
                   { color: theme.textSecondary },
                 ]}
               >
-                Pick the accent used across the app (buttons, highlights, and
-                active states).
+                Select the view with which to display search Results
               </Text>
             </View>
             <View style={styles.settingDescSet}>
