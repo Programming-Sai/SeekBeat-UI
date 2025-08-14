@@ -8,6 +8,7 @@ import formatTime from "../lib/utils";
 import { getPrimaryTextColor, HEXA } from "../lib/colors";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import he from "he";
+import BulkSearchInput from "../components/BulkSearchInput";
 
 export default function Home() {
   const songs = [
@@ -136,9 +137,14 @@ export default function Home() {
     >
       <View style={[styles.bulkSearchContainer]}></View>
       <View
-        style={[
-          viewMode === "list" ? styles.searchResults : styles.searchResultsGrid,
-        ]}
+        style={
+          [
+            viewMode === "list"
+              ? styles.searchResults
+              : styles.searchResultsGrid,
+          ]
+          // { display: "none" }
+        }
       >
         {songs.map((song) =>
           viewMode === "list" ? (
@@ -146,7 +152,7 @@ export default function Home() {
               style={[
                 styles.resultCard,
                 {
-                  backgroundImage: `linear-gradient(90deg, ${theme.background} 20%, ${accentColors[accentKey].dark} 80%)`,
+                  backgroundImage: `linear-gradient(90deg, ${theme.background} 10%, ${accentColors[accentKey].dark} 30%)`,
                   border: `2px solid ${accentColors[accentKey].dark}`,
                 },
               ]}

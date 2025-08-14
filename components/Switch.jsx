@@ -24,7 +24,13 @@ export default function Switch({
       <View
         style={[
           styles.thumb,
-          { backgroundColor: !value ? accentDark : accentLight },
+          {
+            backgroundColor: value
+              ? accentDark
+              : theme === "dark"
+              ? accentLight
+              : HEXA(accentDark, 0.6),
+          },
         ]}
       />
     </Pressable>

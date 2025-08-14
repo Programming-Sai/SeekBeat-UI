@@ -89,7 +89,10 @@ export function AppStorageProvider({ children }) {
     setData((s) => ({ ...s, saveSearchHistory: !!enabled }));
 
   const setViewMode = () =>
-    setData((s) => ({ ...s, viewMode: viewMode === "list" ? "grid" : "list" }));
+    setData((s) => ({
+      ...s,
+      viewMode: data.viewMode === "list" ? "grid" : "list",
+    }));
 
   const getViewMode = () => data.viewMode || "list";
 

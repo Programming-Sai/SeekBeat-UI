@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import ColorPicker from "../components/ColorPicker";
 import Switch from "../components/Switch";
 import { useAppStorage } from "../contexts/AppStorageContext";
+import TabbedSwitch from "../components/TabbedSwitch";
 
 export default function Settings() {
   const { setRightSidebarKey } = useRightSidebar();
@@ -20,8 +21,13 @@ export default function Settings() {
     base: shades.base,
   }));
   const [isEnabled, setIsEnabled] = useState(true);
-  const { saveSearchHistory, setSaveSearchHistory, clearSearchHistory } =
-    useAppStorage();
+  const {
+    saveSearchHistory,
+    setSaveSearchHistory,
+    clearSearchHistory,
+    viewMode,
+    setViewMode,
+  } = useAppStorage();
 
   const handleClear = () => {
     if (confirm("Permanently delete all search history?")) {
@@ -93,10 +99,11 @@ export default function Settings() {
               </Text>
             </View>
             <View style={styles.settingDescSet}>
-              <Switch
-                value={saveSearchHistory}
-                setValue={(v) => setSaveSearchHistory(v)}
-                theme={themeMode}
+              <TabbedSwitch
+                viewMode={viewMode}
+                setViewMode={setViewMode}
+                themeMode={themeMode}
+                theme={theme}
                 accent={theme.accent}
                 accentLight={accentColors[accentKey].light}
                 accentDark={accentColors[accentKey].dark}

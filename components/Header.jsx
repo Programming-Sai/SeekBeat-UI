@@ -12,6 +12,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { HEXA, RGBA } from "../lib/colors";
 import React, { useState, useRef } from "react";
 import Icon from "react-native-vector-icons/Ionicons";
+import BulkSearchInput from "./BulkSearchInput";
 
 export default function Header() {
   const { theme, toggleTheme, themeMode, accentColors, accentKey } = useTheme();
@@ -59,7 +60,7 @@ export default function Header() {
         </Link>
       </View>
       <View>
-        <TextInput
+        {/* <TextInput
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           style={[
@@ -77,7 +78,10 @@ export default function Header() {
           ]}
           placeholderTextColor={theme.textSecondary}
           placeholder="Search ..."
-        />
+        /> */}
+        <View style={styles.searchInput}>
+          <BulkSearchInput />
+        </View>
       </View>
       <View style={styles.themeToggleBox}>
         <Pressable
@@ -120,7 +124,7 @@ export default function Header() {
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    height: 50, // number, not string
+    height: 60, // number, not string
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -136,19 +140,18 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255, 255, 255, 0.2)",
   },
   image: {
-    width: 30,
-    height: 30,
+    width: 40,
+    height: 40,
   },
   searchInput: {
     height: 40,
     width: "70vh",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
     borderRadius: 20,
     bordorWidth: 0,
     boxShadow: "none",
     outlineWidth: 0, // remove outline
     boxShadow: "none",
+    marginTop: -8,
   },
   themeToggleBox: {
     display: "flex",
