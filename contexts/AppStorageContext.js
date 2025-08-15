@@ -17,6 +17,8 @@ export function AppStorageProvider({ children }) {
     // new flag - whether to save incoming searches
     saveSearchHistory: true,
     viewMode: "list",
+    // last cached search (trimmed)
+    lastSearch: null, // { type: 'single'|'bulk', query?, queries?, items: [...], when }
   };
 
   const [data, setData] = useState(defaultData);
@@ -94,7 +96,13 @@ export function AppStorageProvider({ children }) {
       viewMode: data.viewMode === "list" ? "grid" : "list",
     }));
 
-  const getViewMode = () => data.viewMode || "list";
+  // NEW: lastSearch helpers (store and retrieve the normalized response as-is)
+  const setLastSearch = (payload) =>
+    setData((s) => ({ ...s, lastSearch: payload || null }));
+
+  const getLastSearch = () => data.lastSearch || null;
+
+  const clearLastSearch = () => setData((s) => ({ ...s, lastSearch: null }));
 
   const setPlaylists = (playlists) => setData((s) => ({ ...s, playlists }));
 
@@ -124,6 +132,12 @@ export function AppStorageProvider({ children }) {
         setPlaylists,
         // (optionally) setter for raw data
         setData,
+
+        // last search cache
+        setLastSearch,
+        lastSearch: data.lastSearch,
+        getLastSearch,
+        clearLastSearch,
       }}
     >
       {children}

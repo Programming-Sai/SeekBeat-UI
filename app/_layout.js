@@ -9,6 +9,7 @@ import NavBar from "../components/NavBar";
 import SideBar from "../components/SideBar";
 import { SidebarProvider } from "../contexts/SidebarContext";
 import { SearchProvider } from "../contexts/SearchContext";
+import Toast from "react-native-toast-message";
 
 export default function Layout() {
   return (
@@ -17,6 +18,7 @@ export default function Layout() {
         <SidebarProvider>
           <SearchProvider>
             <LayoutContent />
+            <Toast />
           </SearchProvider>
         </SidebarProvider>
       </AppStorageProvider>

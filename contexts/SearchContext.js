@@ -57,7 +57,7 @@ export function SearchProvider({ children, defaultPageSize = 12 }) {
 
       try {
         // NOTE: backend expects `?query=...`
-        const url = `https://seekbeat.onrender.com/api/seargch/?query=${encodeURIComponent(
+        const url = `https://seekbeat.onrender.com/api/search/?query=${encodeURIComponent(
           q
         )}`;
         const res = await fetch(url, { signal: controller.signal });

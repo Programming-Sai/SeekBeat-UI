@@ -5,65 +5,116 @@ import { useEffect } from "react";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import PaginatedResults from "../components/PaginatedResults";
 import AccordionGroup from "../components/AccordionGroup";
-import Icon from "react-native-vector-icons/Ionicons";
 import { useSearch } from "../contexts/SearchContext";
-import { Skeleton } from "../components/Skeleton";
-import { HEXA } from "../lib/colors";
 import LoadingSkeleton from "../components/LoadingSkeleton";
+import Toast from "react-native-toast-message";
 
 export default function Home() {
   const { setRightSidebarKey } = useRightSidebar();
-  const { viewMode } = useAppStorage();
-  const { normalized, isLoading, error, setIsLoading } = useSearch();
+  const { viewMode, lastSearch, setLastSearch } = useAppStorage();
+  const { normalized, isLoading, error } = useSearch();
+  const { theme, themeMode, accentKey, accentColors } = useTheme();
 
+  // Save the *normalized* result to storage when it becomes available.
+  // (We intentionally DO NOT write lastSearch when it's null/undefined)
+  useEffect(() => {
+    if (!normalized) return;
+    // do a cheap equality check — stringify is simple and enough here
+    try {
+      const normStr = JSON.stringify(normalized);
+      const lastStr = JSON.stringify(lastSearch);
+      if (normStr === lastStr) return; // no change -> don't write
+    } catch (e) {
+      // fallback: if stringify fails, still write once
+    }
+    setLastSearch(normalized);
+  }, [normalized, lastSearch, setLastSearch]);
+
+  // set right sidebar key for this page
   useEffect(() => {
     setRightSidebarKey("home");
     return () => setRightSidebarKey(null);
-  }, []);
+  }, [setRightSidebarKey]);
 
-  // setIsLoading(true);
+  // show toast when there's an error (still allow fallback rendering)
+  useEffect(() => {
+    if (error) {
+      Toast.show({
+        type: "error",
+        position: "top",
+        text1: "Error",
+        text2: String(error),
+        text2Style: { fontSize: 16 },
+        visibilityTime: 4000,
+        autoHide: true,
+      });
+    }
+  }, [error]);
 
-  if (!isLoading && !error && !normalized) {
+  // Determine source to render: prefer live normalized results, otherwise use lastSearch
+  const source = normalized ?? lastSearch ?? null;
+  const displayType = normalized?.type ?? lastSearch?.type ?? null;
+
+  // Loading state (use displayType to let skeleton adjust)
+  if (isLoading) {
+    return (
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={[styles.container]}
+      >
+        <LoadingSkeleton viewMode={viewMode} displayType={displayType} />
+      </ScrollView>
+    );
+  }
+
+  // No results at all (initial empty state)
+  if (!source) {
     return (
       <View style={[styles.container, { alignItems: "center", marginTop: 40 }]}>
-        <Icon name="search-off" size={48} color="#999" />
-        <Text>Begin Search</Text>
+        <Text
+          style={[
+            {
+              color: theme.textSecondary,
+              fontWeight: "bold",
+              fontSize: 40,
+              letterSpacing: 3,
+            },
+          ]}
+        >
+          Your Search Results Appear Here.
+        </Text>
       </View>
     );
   }
+
+  // If we have a source (normalized or lastSearch) — render it.
+  // It should match the shape you expect (bulk vs single)
   return (
     <ScrollView showsVerticalScrollIndicator={false} style={[styles.container]}>
-      {}
-      {}
-      {isLoading ? (
-        <LoadingSkeleton viewMode={viewMode} displayType={normalized?.type} />
-      ) : error ? (
-        <Text style={{ color: "red" }}>{error}</Text>
-      ) : !isLoading && !normalized ? (
-        <Text>Enter a query and press Enter</Text>
-      ) : (
-        <View>
-          {/* <ScrollView style={{ padding: 16 }}> */}
-
-          {normalized?.type === "bulk" ? (
-            normalized?.blocks.map((block) => (
-              <AccordionGroup
-                key={block.search_term.query}
-                block={block}
-                pageSize={9}
-                viewMode={viewMode}
-              />
-            ))
-          ) : (
-            <PaginatedResults
-              style={styles.searchResults}
-              songs={normalized?.items}
-              pageSize={12}
+      <View>
+        {source.type === "bulk" ? (
+          // bulk blocks: if lastSearch was saved it should have the same `blocks` structure
+          source.blocks?.map((block) => (
+            <AccordionGroup
+              key={
+                block.search_term?.query ??
+                Math.random().toString(36).slice(2, 9)
+              }
+              block={block}
+              pageSize={9}
               viewMode={viewMode}
             />
-          )}
-        </View>
-      )}
+          ))
+        ) : (
+          // single search: normalized.items or lastSearch.items
+          <PaginatedResults
+            style={styles.searchResults}
+            songs={source.items ?? []}
+            pageSize={12}
+            viewMode={viewMode}
+          />
+        )}
+      </View>
     </ScrollView>
   );
 }

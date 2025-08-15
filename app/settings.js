@@ -106,7 +106,7 @@ export default function Settings() {
                 accent={theme.accent}
                 accentLight={accentColors[accentKey].light}
                 accentDark={accentColors[accentKey].dark}
-              />{" "}
+              />
             </View>
           </View>
         </View>

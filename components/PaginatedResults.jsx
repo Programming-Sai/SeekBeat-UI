@@ -53,6 +53,10 @@ export default function PaginatedResults({
   const goPrev = () => goto(page - 1);
   const goNext = () => goto(page + 1);
 
+  const onDownload = (song) => {
+    console.log("This would be Downloaded: ", song);
+  };
+
   return (
     <View style={[{ width: "100%" }]}>
       {/* Render the current page items using your exact markup */}
@@ -189,7 +193,7 @@ export default function PaginatedResults({
                           Play
                         </Text>
                       </Pressable>
-                    </View>{" "}
+                    </View>
                     <View
                       style={[
                         styles?.buttonBox,
@@ -202,7 +206,10 @@ export default function PaginatedResults({
                         },
                       ]}
                     >
-                      <Pressable style={[styles?.button]}>
+                      <Pressable
+                        onPress={() => onDownload(song.webpage_url)}
+                        style={[styles?.button]}
+                      >
                         <Text
                           style={[
                             {
@@ -338,7 +345,7 @@ export default function PaginatedResults({
                           Play
                         </Text>
                       </Pressable>
-                    </View>{" "}
+                    </View>
                     <View
                       style={[
                         styles?.buttonBoxGrid,
@@ -351,7 +358,10 @@ export default function PaginatedResults({
                         },
                       ]}
                     >
-                      <Pressable style={[styles?.button]}>
+                      <Pressable
+                        onPress={() => onDownload(song.webpage_url)}
+                        style={[styles?.button]}
+                      >
                         <Text
                           style={[
                             {
