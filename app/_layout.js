@@ -10,17 +10,20 @@ import SideBar from "../components/SideBar";
 import { SidebarProvider } from "../contexts/SidebarContext";
 import { SearchProvider } from "../contexts/SearchContext";
 import Toast from "react-native-toast-message";
+import { MenuProvider } from "react-native-popup-menu";
 
 export default function Layout() {
   return (
     <ThemeProvider>
       <AppStorageProvider>
-        <SidebarProvider>
-          <SearchProvider>
-            <LayoutContent />
-            <Toast />
-          </SearchProvider>
-        </SidebarProvider>
+        <MenuProvider>
+          <SidebarProvider>
+            <SearchProvider>
+              <LayoutContent />
+              <Toast />
+            </SearchProvider>
+          </SidebarProvider>
+        </MenuProvider>
       </AppStorageProvider>
     </ThemeProvider>
   );

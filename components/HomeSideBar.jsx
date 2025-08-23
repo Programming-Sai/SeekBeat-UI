@@ -10,7 +10,7 @@ import {
   Image,
   Alert,
 } from "react-native";
-// import Clipboard from "@react-native-clipboard/clipboard"; // install if you don't have it
+import Clipboard from "@react-native-clipboard/clipboard"; // install if you don't have it
 import { useTheme } from "../contexts/ThemeContext";
 import { getPrimaryTextColor, HEXA } from "../lib/colors";
 import { HistoryIcon } from "./HistoryIcon";
@@ -24,7 +24,7 @@ import { InlineMenu } from "./InlineMenu"; // <-- new
 
 export const HomeSideBar = () => {
   const { theme, accentColors, accentKey } = useTheme();
-  const { data } = useAppStorage();
+  const { data, removeSearchAt, removeDownload } = useAppStorage();
   const { submitSearch } = useSearch();
   const [tab, setTab] = useState("history");
 
@@ -36,7 +36,116 @@ export const HomeSideBar = () => {
 
   const searchHistory = localHistory; // keep rest of code unchanged except using this array
 
-  const downloads = data?.downloads;
+  const downloads = data?.downloads || [];
+  // const downloads = [
+  //   {
+  //     title:
+  //       "LEADERS OF HISTORY RAP CYPHER | RUSTAGE ft. The Stupendium, Keyblade, TOPHAMHAT-KYO &amp; More",
+  //     duration: 643,
+  //     uploader: "RUSTAGE",
+  //     thumbnail: "https://i.ytimg.com/vi/PEwy4U1OkBA/hqdefault.jpg",
+  //     webpage_url: "https://www.youtube.com/watch?v=PEwy4U1OkBA",
+  //     upload_date: "2025-06-21T23:45:01Z",
+  //     largest_thumbnail: "https://i.ytimg.com/vi/PEwy4U1OkBA/hqdefault.jpg",
+  //     smallest_thumbnail: "https://i.ytimg.com/vi/PEwy4U1OkBA/default.jpg",
+  //   },
+  //   {
+  //     title:
+  //       "ALEXANDER THE GREAT RAP | &quot;TOO GREAT&quot; | RUSTAGE ft. McGwire",
+  //     duration: 165,
+  //     uploader: "RUSTAGE",
+  //     thumbnail: "https://i.ytimg.com/vi/ylkIN11u8MU/hqdefault.jpg",
+  //     webpage_url: "https://www.youtube.com/watch?v=ylkIN11u8MU",
+  //     upload_date: "2024-12-07T17:00:53Z",
+  //     largest_thumbnail: "https://i.ytimg.com/vi/ylkIN11u8MU/hqdefault.jpg",
+  //     smallest_thumbnail: "https://i.ytimg.com/vi/ylkIN11u8MU/default.jpg",
+  //   },
+  //   {
+  //     title: "Leaders of History Rap Cypher | Rustage | History Teacher Reacts",
+  //     duration: 1741,
+  //     uploader: "Mr. Terry History",
+  //     thumbnail: "https://i.ytimg.com/vi/DhLR9GS-muo/hqdefault.jpg",
+  //     webpage_url: "https://www.youtube.com/watch?v=DhLR9GS-muo",
+  //     upload_date: "2025-06-27T17:00:21Z",
+  //     largest_thumbnail: "https://i.ytimg.com/vi/DhLR9GS-muo/hqdefault.jpg",
+  //     smallest_thumbnail: "https://i.ytimg.com/vi/DhLR9GS-muo/default.jpg",
+  //   },
+  //   {
+  //     title:
+  //       "CID KAGENOU RAP | &quot;ATOMIC&quot; | RUSTAGE ft. TSUYO [THE EMINENCE IN SHADOW]",
+  //     duration: 172,
+  //     uploader: "RUSTAGE",
+  //     thumbnail: "https://i.ytimg.com/vi/i6urQLIEWBE/hqdefault.jpg",
+  //     webpage_url: "https://www.youtube.com/watch?v=i6urQLIEWBE",
+  //     upload_date: "2025-07-04T21:01:00Z",
+  //     largest_thumbnail: "https://i.ytimg.com/vi/i6urQLIEWBE/hqdefault.jpg",
+  //     smallest_thumbnail: "https://i.ytimg.com/vi/i6urQLIEWBE/default.jpg",
+  //   },
+  //   {
+  //     title:
+  //       "THOR, LOKI &amp; ODIN RAP | &quot;VALHALLA&quot; | RUSTAGE ft. Shwabadi &amp; Connor Quest!",
+  //     duration: 234,
+  //     uploader: "RUSTAGE",
+  //     thumbnail: "https://i.ytimg.com/vi/M6BRcXzcP_k/hqdefault.jpg",
+  //     webpage_url: "https://www.youtube.com/watch?v=M6BRcXzcP_k",
+  //     upload_date: "2024-10-11T22:00:12Z",
+  //     largest_thumbnail: "https://i.ytimg.com/vi/M6BRcXzcP_k/hqdefault.jpg",
+  //     smallest_thumbnail: "https://i.ytimg.com/vi/M6BRcXzcP_k/default.jpg",
+  //   },
+  //   {
+  //     title: "LEADERS OF HISTORY RAP CYPHER - Rustage Reaction",
+  //     duration: 1565,
+  //     uploader: "Vlogging Through History",
+  //     thumbnail: "https://i.ytimg.com/vi/5NVF1eg1x6Y/hqdefault.jpg",
+  //     webpage_url: "https://www.youtube.com/watch?v=5NVF1eg1x6Y",
+  //     upload_date: "2025-07-24T16:23:47Z",
+  //     largest_thumbnail: "https://i.ytimg.com/vi/5NVF1eg1x6Y/hqdefault.jpg",
+  //     smallest_thumbnail: "https://i.ytimg.com/vi/5NVF1eg1x6Y/default.jpg",
+  //   },
+  //   {
+  //     title:
+  //       "YONKO RAP CYPHER | RUSTAGE ft. Shwabadi, Connor Quest! PE$O PETE &amp; Lex Bratcher [ONE PIECE]",
+  //     duration: 248,
+  //     uploader: "RUSTAGE",
+  //     thumbnail: "https://i.ytimg.com/vi/8tCMJOYvpi4/hqdefault.jpg",
+  //     webpage_url: "https://www.youtube.com/watch?v=8tCMJOYvpi4",
+  //     upload_date: "2021-06-11T21:00:05Z",
+  //     largest_thumbnail: "https://i.ytimg.com/vi/8tCMJOYvpi4/hqdefault.jpg",
+  //     smallest_thumbnail: "https://i.ytimg.com/vi/8tCMJOYvpi4/default.jpg",
+  //   },
+  //   {
+  //     title:
+  //       "SUPERMAN RAP  | &quot;HOPE&quot; | RUSTAGE ft. JT MUSIC &amp; LongestSoloEver",
+  //     duration: 215,
+  //     uploader: "RUSTAGE",
+  //     thumbnail: "https://i.ytimg.com/vi/ayA_GJV93gA/hqdefault.jpg",
+  //     webpage_url: "https://www.youtube.com/watch?v=ayA_GJV93gA",
+  //     upload_date: "2025-08-09T00:35:00Z",
+  //     largest_thumbnail: "https://i.ytimg.com/vi/ayA_GJV93gA/hqdefault.jpg",
+  //     smallest_thumbnail: "https://i.ytimg.com/vi/ayA_GJV93gA/default.jpg",
+  //   },
+  //   {
+  //     title:
+  //       "WILL OF D. RAP CYPHER | RUSTAGE ft. Shao Dow, Shwabadi &amp; More [ONE PIECE]",
+  //     duration: 366,
+  //     uploader: "RUSTAGE",
+  //     thumbnail: "https://i.ytimg.com/vi/U7bp_aiVBGU/hqdefault.jpg",
+  //     webpage_url: "https://www.youtube.com/watch?v=U7bp_aiVBGU",
+  //     upload_date: "2023-10-14T16:00:18Z",
+  //     largest_thumbnail: "https://i.ytimg.com/vi/U7bp_aiVBGU/hqdefault.jpg",
+  //     smallest_thumbnail: "https://i.ytimg.com/vi/U7bp_aiVBGU/default.jpg",
+  //   },
+  //   {
+  //     title: "RUSTAGE - LEADERS OF HISTORY RAP CYPHER | Reaction!",
+  //     duration: 1398,
+  //     uploader: "WHAT IT DO DAVE",
+  //     thumbnail: "https://i.ytimg.com/vi/ctU9akacRCw/hqdefault.jpg",
+  //     webpage_url: "https://www.youtube.com/watch?v=ctU9akacRCw",
+  //     upload_date: "2025-06-22T15:00:58Z",
+  //     largest_thumbnail: "https://i.ytimg.com/vi/ctU9akacRCw/hqdefault.jpg",
+  //     smallest_thumbnail: "https://i.ytimg.com/vi/ctU9akacRCw/default.jpg",
+  //   },
+  // ];
 
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
 
@@ -49,7 +158,7 @@ export const HomeSideBar = () => {
     try {
       Clipboard.setString(term);
       // small feedback
-      Alert.alert("Copied", "Search term copied to clipboard");
+      window.alert(`${term} copied to clipboard`);
     } catch (e) {
       console.warn("Clipboard error", e);
     }
@@ -57,20 +166,23 @@ export const HomeSideBar = () => {
   };
 
   const deleteItem = (index) => {
-    Alert.alert("Delete", "Delete this history entry?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => {
-          const next = [...(data?.searchHistory ?? [])];
-          // find correct item index relative to the sorted map: we used the raw localHistory order, so just splice index from localHistory
-          next.splice(index, 1);
-          setLocalHistory(next);
-          // If you have a persistence API, call it here (e.g. setData or updateSearchHistory)
-        },
-      },
-    ]);
+    const confirmed = window.confirm(`Delete "${searchHistory[index].term}"?`);
+    if (confirmed) {
+      removeSearchAt(index);
+    }
+    setOpenMenuIndex(null);
+  };
+
+  const playDownload = (download) => {
+    console.log(`Playing: ${download.title}`);
+    setOpenMenuIndex(null);
+  };
+
+  const deleteDownload = (download) => {
+    const confirmed = window.confirm(`Delete "${download.title}"?`);
+    if (confirmed) {
+      removeDownload(download.webpage_url);
+    }
     setOpenMenuIndex(null);
   };
 
@@ -134,55 +246,49 @@ export const HomeSideBar = () => {
         {tab === "history" ? (
           searchHistory && searchHistory.length > 0 ? (
             searchHistory
-              // .slice(0, 1)
+              // .slice(0, 3)
               .sort((a, b) => b.when - a.when)
               .map((hist, idx) => (
                 <Pressable
                   key={idx}
-                  // add position: 'relative' inline so inline menu absolute positioning anchors to this item
                   style={[
                     styles.historyItemBox,
                     {
                       backgroundColor: theme.background,
                       position: "relative",
-                      // zIndex: -200,
                     },
                   ]}
                   onPress={() => submitSearch(hist?.term)}
                 >
                   <View style={[styles.iconText]}>
                     <HistoryIcon color={theme.text} size={20} />
-                    <Text style={{ color: theme.text }}>{hist?.term}</Text>
+                    <Text
+                      style={{ color: theme.text, width: 250 }}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {hist?.term}
+                    </Text>
                   </View>
 
                   <View>
-                    <TouchableOpacity
-                      onPress={() =>
-                        setOpenMenuIndex(openMenuIndex === idx ? null : idx)
-                      }
-                    >
-                      <MoreIcon color={theme.text} size={20} />
-                    </TouchableOpacity>
-
-                    {openMenuIndex === idx && (
-                      <InlineMenu
-                        onClose={() => setOpenMenuIndex(null)}
-                        options={[
-                          {
-                            label: "Open",
-                            onPress: () => openItem(hist?.term),
-                          },
-                          {
-                            label: "Copy",
-                            onPress: () => console.log(hist?.term),
-                            // onPress: () => copyItem(hist?.term),
-                          },
-                          { label: "Delete", onPress: () => deleteItem(idx) },
-                        ]}
-                        // tweak position if you need it (kept minimal)
-                        style={{ right: 6, top: 36 }}
-                      />
-                    )}
+                    <InlineMenu
+                      trigger={<MoreIcon color={theme.text} size={20} />}
+                      options={[
+                        {
+                          label: "Open",
+                          onPress: () => openItem(hist?.term),
+                        },
+                        {
+                          label: "Copy",
+                          onPress: () => copyItem(hist?.term),
+                        },
+                        {
+                          label: "Delete",
+                          onPress: () => deleteItem(idx),
+                        },
+                      ]}
+                    />
                   </View>
                 </Pressable>
               ))
@@ -233,7 +339,21 @@ export const HomeSideBar = () => {
                   </View>
                 </View>
                 <TouchableOpacity>
-                  <MoreIcon color={theme.text} size={25} />
+                  <View>
+                    <InlineMenu
+                      trigger={<MoreIcon color={theme.text} size={25} />}
+                      options={[
+                        {
+                          label: "Play",
+                          onPress: () => playDownload(download),
+                        },
+                        {
+                          label: "Delete",
+                          onPress: () => deleteDownload(download),
+                        },
+                      ]}
+                    />
+                  </View>
                 </TouchableOpacity>
               </View>
             ))
@@ -320,7 +440,7 @@ const styles = StyleSheet.create({
     height: 50,
   },
   image: {
-    width: "!00%",
+    width: "100%",
     height: "100%",
     objectFit: "contain",
   },

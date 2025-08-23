@@ -11,10 +11,11 @@ import Toast from "react-native-toast-message";
 
 export default function Home() {
   const { setRightSidebarKey } = useRightSidebar();
-  const { viewMode, lastSearch, setLastSearch } = useAppStorage();
+  const { viewMode, getLastSearch, setLastSearch } = useAppStorage();
   const { normalized, isLoading, error } = useSearch();
-  const { theme, themeMode, accentKey, accentColors } = useTheme();
+  const { theme } = useTheme();
 
+  const lastSearch = getLastSearch();
   // Save the *normalized* result to storage when it becomes available.
   // (We intentionally DO NOT write lastSearch when it's null/undefined)
   useEffect(() => {

@@ -11,14 +11,12 @@ export function AppStorageProvider({ children }) {
 
   // default shape
   const defaultData = {
-    downloads: [],
+    downloads: [], // array of { id, ... }
     searchHistory: [], // array of { term, when }
-    playlists: {},
-    // new flag - whether to save incoming searches
-    saveSearchHistory: true,
-    viewMode: "list",
-    // last cached search (trimmed)
-    lastSearch: null, // { type: 'single'|'bulk', query?, queries?, items: [...], when }
+    playlists: {}, // { [playlistId]: { name, items: [] } }
+    saveSearchHistory: true, // whether to save incoming searches
+    viewMode: "list", // "list" | "grid"
+    lastSearch: null, // { type: 'single'|'bulk', ... }
   };
 
   const [data, setData] = useState(defaultData);
@@ -29,7 +27,6 @@ export function AppStorageProvider({ children }) {
       try {
         const stored = await storageGet(STORAGE_KEY, null);
         if (!mounted) return;
-        // merge stored with defaults to avoid missing keys
         if (stored) setData({ ...defaultData, ...stored });
         setReady(true);
       } catch (e) {
@@ -43,32 +40,35 @@ export function AppStorageProvider({ children }) {
     return () => (mounted = false);
   }, []);
 
-  // persist on change (simple immediate persist; debounce if many writes)
+  // persist on change
   useEffect(() => {
     if (!isReady) return;
     storageSet(STORAGE_KEY, data);
   }, [data, isReady]);
 
-  /* ---------- helpers ---------- */
-
+  /* ---------- DOWNLOADS ---------- */
   const addDownload = (item) =>
     setData((s) => ({ ...s, downloads: [item, ...(s.downloads || [])] }));
 
-  const removeDownload = (id) =>
+  const removeDownload = (url) => {
     setData((s) => ({
       ...s,
-      downloads: (s.downloads || []).filter((d) => d.id !== id),
+      downloads: (s.downloads || []).filter((d) => d.webpage_url !== url),
     }));
+  };
 
-  // pushSearch respects saveSearchHistory flag
+  const clearDownloads = () => setData((s) => ({ ...s, downloads: [] }));
+
+  const getDownloads = () => data.downloads || [];
+
+  /* ---------- SEARCH HISTORY ---------- */
   const pushSearch = (term) =>
     setData((s) => {
-      if (!s.saveSearchHistory) return s; // do nothing when disabled
+      if (!s.saveSearchHistory) return s;
 
       const trimmed = typeof term === "string" ? term.trim() : "";
       if (!trimmed) return s;
 
-      // dedupe (case-insensitive) and keep newest first
       const normalized = trimmed.toLowerCase();
       const filtered = (s.searchHistory || []).filter(
         (q) => q.term.toLowerCase() !== normalized
@@ -83,20 +83,52 @@ export function AppStorageProvider({ children }) {
       return { ...s, searchHistory: next };
     });
 
+  const removeSearchAt = (index) =>
+    setData((s) => {
+      const next = [...(s.searchHistory || [])];
+      next.splice(index, 1);
+      return { ...s, searchHistory: next };
+    });
+
   const clearSearchHistory = () =>
     setData((s) => ({ ...s, searchHistory: [] }));
 
-  // new: toggle the save flag. We do NOT auto-clear history when disabling; that is UX choice.
+  const getSearchHistory = () => data.searchHistory || [];
+
+  /* ---------- SAVE SEARCH FLAG ---------- */
   const setSaveSearchHistory = (enabled) =>
     setData((s) => ({ ...s, saveSearchHistory: !!enabled }));
 
-  const setViewMode = () =>
+  const getSaveSearchHistory = () => !!data.saveSearchHistory;
+
+  /* ---------- VIEW MODE ---------- */
+  const setViewMode = (mode) =>
     setData((s) => ({
       ...s,
-      viewMode: data.viewMode === "list" ? "grid" : "list",
+      viewMode: mode || (s.viewMode === "list" ? "grid" : "list"),
     }));
 
-  // NEW: lastSearch helpers (store and retrieve the normalized response as-is)
+  const getViewMode = () => data.viewMode;
+
+  /* ---------- PLAYLISTS ---------- */
+  const setPlaylists = (playlists) => setData((s) => ({ ...s, playlists }));
+
+  const addPlaylist = (id, playlist) =>
+    setData((s) => ({
+      ...s,
+      playlists: { ...s.playlists, [id]: playlist },
+    }));
+
+  const removePlaylist = (id) =>
+    setData((s) => {
+      const copy = { ...s.playlists };
+      delete copy[id];
+      return { ...s, playlists: copy };
+    });
+
+  const getPlaylists = () => data.playlists || {};
+
+  /* ---------- LAST SEARCH CACHE ---------- */
   const setLastSearch = (payload) =>
     setData((s) => ({ ...s, lastSearch: payload || null }));
 
@@ -104,38 +136,41 @@ export function AppStorageProvider({ children }) {
 
   const clearLastSearch = () => setData((s) => ({ ...s, lastSearch: null }));
 
-  const setPlaylists = (playlists) => setData((s) => ({ ...s, playlists }));
-
-  // convenience getters
-  const getSearchHistory = () => data.searchHistory || [];
-  const getSaveSearchHistory = () => !!data.saveSearchHistory;
-
   return (
     <AppStorageContext.Provider
       value={{
         data,
         isReady,
-        // downloads
-        addDownload,
-        removeDownload,
-        // search
-        pushSearch,
-        clearSearchHistory,
-        getSearchHistory,
-        // save flag
-        saveSearchHistory: getSaveSearchHistory(),
-        setSaveSearchHistory,
-        // View Mode
-        viewMode: data.viewMode,
-        setViewMode,
-        // playlists
-        setPlaylists,
-        // (optionally) setter for raw data
         setData,
 
-        // last search cache
+        // Downloads
+        addDownload,
+        removeDownload,
+        clearDownloads,
+        getDownloads,
+
+        // Search history
+        pushSearch,
+        removeSearchAt,
+        clearSearchHistory,
+        getSearchHistory,
+
+        // Save flag
+        saveSearchHistory: getSaveSearchHistory(),
+        setSaveSearchHistory,
+
+        // View mode
+        viewMode: getViewMode(),
+        setViewMode,
+
+        // Playlists
+        setPlaylists,
+        addPlaylist,
+        removePlaylist,
+        getPlaylists,
+
+        // Last search cache
         setLastSearch,
-        lastSearch: data.lastSearch,
         getLastSearch,
         clearLastSearch,
       }}
