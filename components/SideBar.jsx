@@ -3,6 +3,7 @@ import React from "react";
 import { StyleSheet, View, Text } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { useRightSidebar } from "../contexts/SidebarContext";
+import { HomeSideBar } from "./HomeSideBar";
 // import LibrarySidebar from "./sidebar/LibrarySidebar";
 // import SettingsSidebar from "./sidebar/SettingsSidebar";
 
@@ -25,13 +26,7 @@ export default function SideBar() {
         </Text>
       </View>
     ),
-    home: () => (
-      <View style={{ padding: 16 }}>
-        <Text style={{ color: theme.text, fontWeight: "600" }}>
-          Home Side Bar Component
-        </Text>
-      </View>
-    ),
+    home: () => <HomeSideBar />,
   };
 
   const SidebarComponent = rightSidebarKey

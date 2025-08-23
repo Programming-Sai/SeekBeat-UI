@@ -20,13 +20,13 @@ export default function NavBar() {
 
   const pages = [
     { pageName: "Home", pageLink: "/", Icon: HomeIcon, IconBold: HomeBoldIcon },
-    {
-      pageName: "Local Library",
-      pageLink: "/library",
-      Icon: LibraryIcon,
-      IconBold: LibraryBoldIcon,
-    },
-    { pageName: "LAN", pageLink: "/lan", Icon: LanIcon, IconBold: LanBoldIcon },
+    // {
+    //   pageName: "Local Library",
+    //   pageLink: "/library",
+    //   Icon: LibraryIcon,
+    //   IconBold: LibraryBoldIcon,
+    // },
+    // { pageName: "LAN", pageLink: "/lan", Icon: LanIcon, IconBold: LanBoldIcon },
     {
       pageName: "Settings",
       pageLink: "/settings",
