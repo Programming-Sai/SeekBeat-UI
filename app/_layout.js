@@ -11,6 +11,7 @@ import { SidebarProvider } from "../contexts/SidebarContext";
 import { SearchProvider } from "../contexts/SearchContext";
 import Toast from "react-native-toast-message";
 import { MenuProvider } from "react-native-popup-menu";
+import MiniPlayer from "../components/MiniPlayer";
 
 export default function Layout() {
   return (
@@ -41,6 +42,7 @@ function LayoutContent() {
         <View style={{ flex: 1 }}>
           <Slot />
         </View>
+        <MiniPlayer />
         <SideBar />
       </View>
     </View>

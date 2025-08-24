@@ -123,7 +123,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    paddingTop: 200,
+    paddingVertical: 200,
     width: "100%",
   },
   searchResults: {

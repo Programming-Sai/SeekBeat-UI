@@ -186,10 +186,10 @@ export default function Settings() {
 const styles = StyleSheet.create({
   scroll: {
     flex: 1, // full height so ScrollView knows its bounds
+    paddingVertical: 200, // leave room for the Header (adjust if your header height differs)
   },
   contentContainer: {
     paddingHorizontal: 20,
-    paddingTop: 100, // leave room for the Header (adjust if your header height differs)
     paddingBottom: 48,
     flexGrow: 1, // ensures content pushes to fill and allows scrolling
     alignItems: "center",
