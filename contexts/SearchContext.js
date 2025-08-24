@@ -12,6 +12,44 @@ import { useAppStorage } from "./AppStorageContext";
 
 const SearchContext = createContext(null);
 
+function extractVideoId(url) {
+  try {
+    const u = new URL(url);
+    return u.searchParams.get("v"); // works for "https://www.youtube.com/watch?v=PEwy4U1OkBA"
+  } catch {
+    return null;
+  }
+}
+
+function augmentWithId(normalized) {
+  if (!normalized) return null;
+
+  if (normalized.type === "list") {
+    return {
+      ...normalized,
+      items: normalized.items.map((song) => ({
+        ...song,
+        id: extractVideoId(song.webpage_url),
+      })),
+    };
+  }
+
+  if (normalized.type === "bulk") {
+    return {
+      ...normalized,
+      blocks: normalized.blocks.map((block) => ({
+        ...block,
+        results: block.results.map((song) => ({
+          ...song,
+          id: extractVideoId(song.webpage_url),
+        })),
+      })),
+    };
+  }
+
+  return normalized;
+}
+
 export function SearchProvider({ children, defaultPageSize = 12 }) {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState(null);
@@ -75,7 +113,7 @@ export function SearchProvider({ children, defaultPageSize = 12 }) {
         setResponse(json);
 
         const norm = normalizeSearchResponse(json);
-        setNormalized(norm);
+        setNormalized(augmentWithId(norm));
 
         setPage(1);
         try {
@@ -137,7 +175,7 @@ export function SearchProvider({ children, defaultPageSize = 12 }) {
         setResponse(json);
 
         const norm = normalizeSearchResponse(json);
-        setNormalized(norm);
+        setNormalized(augmentWithId(norm));
 
         setPage(1);
 
