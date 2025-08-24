@@ -139,6 +139,7 @@ const styles = StyleSheet.create({
   imgBox: {
     width: 70,
     height: 70,
+    // border: "2px solid red",
   },
   img: {
     width: "100%",
