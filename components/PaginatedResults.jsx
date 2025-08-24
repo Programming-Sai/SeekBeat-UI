@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, Image, StyleSheet } from "react-native";
 import { Link } from "expo-router";
 import he from "he";
-import formatTime from "../lib/utils"; // your existing util
+import formatTime, { timeAgo } from "../lib/utils"; // your existing util
 import { getPrimaryTextColor, HEXA } from "../lib/colors";
 import { useTheme } from "../contexts/ThemeContext";
 import { usePlayer } from "../contexts/PlayerContext";
@@ -169,7 +169,8 @@ export default function PaginatedResults({
                         },
                       ]}
                     >
-                      {song.uploader}
+                      {song.uploader} {"  "} ● {"  "}{" "}
+                      {timeAgo(song.upload_date)}
                     </Text>
                   </View>
                   <View style={[styles?.buttonsBox]}>
@@ -290,7 +291,7 @@ export default function PaginatedResults({
                         numberOfLines={1}
                         ellipsizeMode="tail"
                       >
-                        {song.uploader}
+                        {timeAgo(song.upload_date)}
                       </Text>
                       <Text
                         style={[
@@ -325,6 +326,25 @@ export default function PaginatedResults({
                       ellipsizeMode="tail"
                     >
                       {he.decode(song.title ?? "")}
+                    </Text>
+                    <Text
+                      style={[
+                        {
+                          color:
+                            themeMode === "dark"
+                              ? theme.textSecondary
+                              : HEXA(
+                                  getPrimaryTextColor(
+                                    accentColors[accentKey].dark
+                                  ),
+                                  0.8
+                                ),
+                        },
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {song.uploader}
                     </Text>
                   </View>
                   <View style={[styles?.buttonsBoxGrid]}>
@@ -536,7 +556,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 20,
     width: "15em",
-    height: "25em",
+    height: "26em",
   },
   details: {
     height: 100,

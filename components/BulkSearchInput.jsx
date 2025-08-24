@@ -13,6 +13,8 @@ import { useTheme } from "../contexts/ThemeContext";
 import { getPrimaryTextColor, HEXA } from "../lib/colors";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useSearch } from "../contexts/SearchContext";
+import { useRouter } from "expo-router";
+import Toast from "react-native-toast-message";
 
 let idCounter = 1;
 
@@ -24,6 +26,7 @@ export default function BulkSearchInput({
 }) {
   const { theme, accentKey, accentColors } = useTheme();
   const { submitSearch, submitBulk } = useSearch(); // get functions from context
+  const router = useRouter();
 
   // fields: array of { id, value }
   const [fields, setFields] = useState(() => [{ id: idCounter++, value: "" }]);
@@ -127,6 +130,23 @@ export default function BulkSearchInput({
         .slice(0, maxFields);
 
       if (values.length === 0) return;
+
+      try {
+        router.push("/"); // expo-router: navigate to home
+        setTimeout(() => {}, 1000);
+      } catch (e) {
+        // ignore router errors — still attempt the search
+        console.warn("Router push failed", e);
+        Toast.show({
+          type: "error",
+          position: "top",
+          text1: "Error",
+          text2: String(e),
+          text2Style: { fontSize: 16 },
+          visibilityTime: 4000,
+          autoHide: true,
+        });
+      }
 
       // prefer context functions if available
       if (values.length === 1) {
