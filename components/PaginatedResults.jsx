@@ -5,6 +5,7 @@ import he from "he";
 import formatTime from "../lib/utils"; // your existing util
 import { getPrimaryTextColor, HEXA } from "../lib/colors";
 import { useTheme } from "../contexts/ThemeContext";
+import { usePlayer } from "../contexts/PlayerContext";
 
 /**
  * Props:
@@ -25,6 +26,7 @@ export default function PaginatedResults({
 }) {
   const { theme, themeMode, accentKey, accentColors } = useTheme();
   const [page, setPage] = useState(1);
+  const { setQueueFromSearchResults, showMiniForIndex } = usePlayer();
 
   // reset when songs array changes
   useEffect(() => {
@@ -55,6 +57,11 @@ export default function PaginatedResults({
 
   const onDownload = (song) => {
     console.log("This would be Downloaded: ", song);
+  };
+
+  const onPlay = (idx) => {
+    setQueueFromSearchResults(songs, /*startIndex=*/ idx); // sets queue and currentIndex to idx
+    showMiniForIndex(idx, true); // opens the mini player but doesn't auto-play
   };
 
   return (
@@ -176,7 +183,10 @@ export default function PaginatedResults({
                         },
                       ]}
                     >
-                      <Pressable style={[styles?.button]}>
+                      <Pressable
+                        style={[styles?.button]}
+                        onPress={() => onPlay(i)}
+                      >
                         <Text
                           style={[
                             {
@@ -328,7 +338,10 @@ export default function PaginatedResults({
                         },
                       ]}
                     >
-                      <Pressable style={[styles?.button]}>
+                      <Pressable
+                        style={[styles?.button]}
+                        onPress={() => onPlay(i)}
+                      >
                         <Text
                           style={[
                             {

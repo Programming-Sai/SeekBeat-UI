@@ -12,19 +12,22 @@ import { SearchProvider } from "../contexts/SearchContext";
 import Toast from "react-native-toast-message";
 import { MenuProvider } from "react-native-popup-menu";
 import MiniPlayer from "../components/MiniPlayer";
+import { PlayerProvider } from "../contexts/PlayerContext";
 
 export default function Layout() {
   return (
     <ThemeProvider>
       <AppStorageProvider>
-        <MenuProvider>
-          <SidebarProvider>
-            <SearchProvider>
-              <LayoutContent />
-              <Toast />
-            </SearchProvider>
-          </SidebarProvider>
-        </MenuProvider>
+        <PlayerProvider>
+          <MenuProvider>
+            <SidebarProvider>
+              <SearchProvider>
+                <LayoutContent />
+                <Toast />
+              </SearchProvider>
+            </SidebarProvider>
+          </MenuProvider>
+        </PlayerProvider>
       </AppStorageProvider>
     </ThemeProvider>
   );
