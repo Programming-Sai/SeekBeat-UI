@@ -60,6 +60,8 @@ export default function PaginatedResults({
   };
 
   const onPlay = (idx) => {
+    idx = (page - 1) * pageSize + idx;
+    console.log("Current Page: ", idx);
     setQueueFromSearchResults(songs, /*startIndex=*/ idx); // sets queue and currentIndex to idx
     showMiniForIndex(idx, true); // opens the mini player but doesn't auto-play
   };

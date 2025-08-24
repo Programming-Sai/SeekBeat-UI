@@ -1,5 +1,5 @@
 // components/MiniPlayer.js
-import React from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   View,
   Platform,
+  PanResponder,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { Image } from "react-native";
 import formatTime from "../lib/utils";
 import { HEXA } from "../lib/colors";
+import { PlayIcon } from "./PlayIcon";
 import { PauseIcon } from "./PauseIcon";
 import { PreviousIcon } from "./PreviousIcon";
 import { NextIcon } from "./NextIcon";
@@ -19,12 +21,10 @@ import he from "he";
 import { usePlayer } from "../contexts/PlayerContext";
 
 /**
- * Props:
- *  - song: { title, duration, largest_thumbnail, ... }
- *  - position: number (seconds or ms depending on your format)
- *  - onPlayPause, onNext, onPrev, onOpenPlayer
+ * Interactive MiniPlayer with click + drag seek.
+ * Uses usePlayer().seek(seconds) to update playback position.
  */
-export default function MiniPlayer({}) {
+export default function MiniPlayer() {
   const { theme } = useTheme();
   const {
     currentTrack,
@@ -35,37 +35,138 @@ export default function MiniPlayer({}) {
     prev,
     miniVisible,
     closeMini,
+    seek,
   } = usePlayer();
 
   // don't render anything if mini is closed or no current track
   if (!miniVisible || !currentTrack) return null;
-  const playedSofar = position;
 
-  // defensive song default
-  const s = currentTrack || {
-    title: "Unkonwn Track",
-    duration: 1,
-    largest_thumbnail: null,
-  };
+  const s = currentTrack;
+  const duration = s.duration || 0;
+  const playedSofar = position || 0;
+  const pctFromCtx = Math.max(
+    0,
+    Math.min(1, (playedSofar || 0) / Math.max(1, duration))
+  );
 
-  const onPlayPause = () => {};
-  const onNext = () => {};
-  const onPrev = () => {};
-  const onOpenPlayer = () => {};
+  // dragging state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragPct, setDragPct] = useState(0); // 0..1 while dragging
 
-  //     const song = {
-  //     title:
-  //       "LEADERS OF HISTORY RAP CYPHER | RUSTAGE ft. The Stupendium, Keyblade, TOPHAMHAT-KYO &amp; More",
-  //     duration: 643,
-  //     uploader: "RUSTAGE",
-  //     thumbnail: "https://i.ytimg.com/vi/PEwy4U1OkBA/hqdefault.jpg",
-  //     webpage_url: "https://www.youtube.com/watch?v=PEwy4U1OkBA",
-  //     upload_date: "2025-06-21T23:45:01Z",
-  //     largest_thumbnail: "https://i.ytimg.com/vi/PEwy4U1OkBA/hqdefault.jpg",
-  //     smallest_thumbnail: "https://i.ytimg.com/vi/PEwy4U1OkBA/default.jpg",
-  //   };
+  // ref to progress container (host element on web, RN view on native)
+  const progressRef = useRef(null);
+  // cached bounding rect for calculations (web) or latest layout (native)
+  const containerRectRef = useRef({ left: 0, width: 0 });
 
-  const pct = Math.max(0, Math.min(1, (playedSofar || 0) / (s.duration || 1)));
+  // helper to measure container rect (web or native)
+  const measureContainer = useCallback(async () => {
+    const node = progressRef.current;
+    if (!node) return null;
+
+    // Web: DOM node likely exposes getBoundingClientRect()
+    if (node.getBoundingClientRect) {
+      const r = node.getBoundingClientRect();
+      containerRectRef.current = { left: r.left, width: r.width };
+      return containerRectRef.current;
+    }
+
+    // Native: try measureInWindow (supported by RN)
+    if (node.measureInWindow) {
+      return new Promise((resolve) => {
+        try {
+          node.measureInWindow((x, y, width, height) => {
+            containerRectRef.current = { left: x, width };
+            resolve(containerRectRef.current);
+          });
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    }
+
+    return null;
+  }, []);
+
+  // compute displayed pct (either dragging or current context)
+  const displayedPct = isDragging ? dragPct : pctFromCtx;
+
+  // convert clientX into ratio using cached or measured rect
+  const computeRatioFromClientX = useCallback(
+    async (clientX) => {
+      // ensure we have rect
+      if (!containerRectRef.current.width) {
+        await measureContainer();
+      }
+      const { left, width } = containerRectRef.current;
+      if (!width || width <= 0) return 0;
+      const offsetX = clientX - left;
+      const ratio = offsetX / width;
+      return Math.max(0, Math.min(1, ratio));
+    },
+    [measureContainer]
+  );
+
+  /********** Mouse / Touch handlers **********/
+
+  // PanResponder for native (and works on web too as fallback)
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: async (evt, gestureState) => {
+        // start dragging
+        setIsDragging(true);
+        // determine clientX (native: gestureState.x0 / pageX; web: nativeEvent.clientX)
+        const native = evt.nativeEvent || {};
+        const clientX = native.pageX ?? native.locationX ?? gestureState.x0;
+        const ratio = await computeRatioFromClientX(clientX);
+        setDragPct(ratio);
+      },
+      onPanResponderMove: async (evt, gestureState) => {
+        const native = evt.nativeEvent || {};
+        const clientX = native.pageX ?? gestureState.moveX ?? native.clientX;
+        const ratio = await computeRatioFromClientX(clientX);
+        setDragPct(ratio);
+      },
+      onPanResponderRelease: async (evt, gestureState) => {
+        const native = evt.nativeEvent || {};
+        const clientX = native.pageX ?? gestureState.moveX ?? native.clientX;
+        const ratio = await computeRatioFromClientX(clientX);
+        // seek to final position and stop dragging
+        const toSec = ratio * (duration || 0);
+        seek(toSec);
+        setIsDragging(false);
+      },
+      onPanResponderTerminationRequest: () => true,
+      onPanResponderTerminate: () => {
+        // cancelled
+        setIsDragging(false);
+      },
+    })
+  ).current;
+
+  // click-to-seek handler: receives DOM/mouse event on web or RN Pressable event
+  const onBarPress = useCallback(
+    async (evt) => {
+      // evt.nativeEvent has clientX / locationX depending on platform
+      const native = evt.nativeEvent || {};
+      const clientX = native.clientX ?? native.pageX ?? native.locationX ?? 0;
+      const ratio = await computeRatioFromClientX(clientX);
+      const to = ratio * (duration || 0);
+      seek(to);
+    },
+    [computeRatioFromClientX, duration, seek]
+  );
+
+  // style for thumb position
+  const thumbLeftStyle = useMemo(
+    () => ({
+      left: `${displayedPct * 100}%`,
+      transform: [{ translateX: -8 }],
+    }),
+    [displayedPct]
+  );
 
   return (
     <View
@@ -80,7 +181,12 @@ export default function MiniPlayer({}) {
       accessibilityLabel="Mini player"
     >
       <View style={styles.inner}>
-        <TouchableOpacity onPress={() => onOpenPlayer()} style={styles.imgBox}>
+        <TouchableOpacity
+          onPress={() => {
+            /* open full player later */
+          }}
+          style={styles.imgBox}
+        >
           {s.largest_thumbnail ? (
             <Image style={styles.img} source={{ uri: s.largest_thumbnail }} />
           ) : (
@@ -99,63 +205,84 @@ export default function MiniPlayer({}) {
           </Text>
 
           <View style={styles.controlsRow}>
-            <TouchableOpacity onPress={onPrev} accessibilityLabel="Previous">
+            <TouchableOpacity onPress={prev} accessibilityLabel="Previous">
               <PreviousIcon color={theme.accent} />
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={onPlayPause}
+              onPress={playPause}
               accessibilityLabel={isPlaying ? "Pause" : "Play"}
             >
-              <PauseIcon color={theme.accent} size={30} />
+              {isPlaying ? (
+                <PauseIcon color={theme.accent} size={30} />
+              ) : (
+                <PlayIcon color={theme.accent} size={30} />
+              )}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={onNext} accessibilityLabel="Next">
+            <TouchableOpacity onPress={next} accessibilityLabel="Next">
               <NextIcon color={theme.accent} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.seekRow}>
             <Text style={[styles.time, { color: theme.textSecondary }]}>
-              {formatTime(playedSofar)}
+              {formatTime(
+                isDragging
+                  ? Math.round((dragPct || 0) * (duration || 0))
+                  : playedSofar
+              )}
             </Text>
 
+            {/* progress bar container */}
             <View
+              ref={progressRef}
+              // Pressable allows click; attach PanResponder handlers to inner view
               style={[
                 styles.progress,
-                { backgroundColor: HEXA(theme.textSecondary, 0.18) },
+                { backgroundColor: HEXA(theme.textSecondary, 0.12) },
               ]}
             >
+              {/* clickable overlay */}
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={onBarPress}
+                {...(Platform.OS !== "web" ? panResponder.panHandlers : {})}
+                // On web, PanResponder can still work but we'll also add pointer handlers below
+              />
+
+              {/* active bar */}
               <View
                 style={[
                   styles.progressBar,
-                  { width: `${pct * 100}%`, backgroundColor: theme.accent },
+                  {
+                    width: `${(isDragging ? dragPct : pctFromCtx) * 100}%`,
+                    backgroundColor: theme.accent,
+                  },
                 ]}
-              >
-                <Pressable
-                  style={[
-                    styles.progressThumb,
-                    { backgroundColor: theme.accent },
-                  ]}
-                />
-              </View>
+              />
+
+              {/* Thumb (overlay) */}
+              <View
+                style={[
+                  styles.thumb,
+                  { backgroundColor: theme.accent },
+                  thumbLeftStyle,
+                ]}
+                {...(Platform.OS === "web" ? panResponder.panHandlers : {})}
+              />
             </View>
 
             <Text style={[styles.time, { color: theme.textSecondary }]}>
-              {formatTime(s.duration)}
+              {formatTime(duration)}
             </Text>
           </View>
         </View>
 
-        {/* optional right-side actions (bookmark/share etc) */}
         <View style={styles.actions}>
-          <Pressable
-            onPress={() => {
-              /* future actions */
-            }}
-          >
-            <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
-              •••
+          <Pressable onPress={() => closeMini(true)}>
+            <Text style={{ color: theme.textSecondary, fontSize: 20 }}>
+              &#x2715;
             </Text>
           </Pressable>
         </View>
@@ -168,7 +295,7 @@ const styles = StyleSheet.create({
   container: {
     position: "fixed",
     bottom: 0,
-    left: "16%", // center by left/right percentages (works well on web)
+    left: "16%",
     right: "26%",
     height: 100,
     zIndex: 9999,
@@ -233,20 +360,24 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 4,
     borderRadius: 999,
-    // overflow: "hidden",
-  },
-  progressBar: {
-    height: "100%",
+    justifyContent: "center",
     position: "relative",
   },
-  progressThumb: {
-    width: 15,
-    height: 15,
-    borderRadius: 100,
+  progressBar: {
+    height: 4,
+    borderRadius: 999,
+  },
+  thumb: {
     position: "absolute",
-    top: "-150%",
-    right: 0,
-    // cursor: "pointer",
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    top: "50%",
+    marginTop: -8,
+    // shadow for web/native
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
   },
   actions: {
     width: 32,
