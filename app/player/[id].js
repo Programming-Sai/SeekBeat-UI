@@ -1,11 +1,5 @@
 // app/player/[id].js
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,9 +7,6 @@ import {
   Image,
   ImageBackground,
   TouchableOpacity,
-  Platform,
-  Pressable,
-  PanResponder,
   ScrollView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -31,26 +22,94 @@ import { PauseIcon } from "../../components/PauseIcon";
 import { PlayIcon } from "../../components/PlayIcon";
 import { NextIcon } from "../../components/NextIcon";
 import { useAppStorage } from "../../contexts/AppStorageContext";
+import SeekBar from "../../components/SeekBar";
 
 /**
- * Full Player Page
+ * Full Player Page (fixed hook ordering)
  */
 export default function PlayerPage() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { setRightSidebarKey } = useRightSidebar?.() ?? {};
-  const { theme } = useTheme?.() ?? {
-    theme: { background: "#fff", text: "#000" },
+
+  // call all hooks unconditionally (important!)
+  const rightSidebarCtx = useRightSidebar();
+  const themeCtx = useTheme();
+  const searchCtx = useSearch();
+  const player = usePlayer();
+  const appStorage = useAppStorage();
+
+  // safe destructuring / fallbacks
+  const { setRightSidebarKey } = rightSidebarCtx ?? {};
+  const { theme, themeMode } = themeCtx ?? {
+    theme: {
+      background: "#fff",
+      text: "#000",
+      textSecondary: "#666",
+      accent: "#1DB954",
+    },
   };
-  const { getFlatItems, normalized, isLoading, error } = useSearch?.() ?? {
+  const { getFlatItems, normalized, isLoading, error } = searchCtx ?? {
     getFlatItems: () => [],
     normalized: null,
     isLoading: false,
   };
+  const { getLastSearch } = appStorage ?? {};
 
-  const player = usePlayer?.();
+  // safe references to player methods (may be undefined until player exists)
+  const setQueueSafe = player?.setQueue;
+  const currentTrackSafe = player?.currentTrack;
+  const positionSafe = player?.position;
+  const durationSafe = player?.duration;
+  const isPlayingSafe = player?.isPlaying;
+  const seekSafe = player?.seek;
+  const prevSafe = player?.prev;
+  const nextSafe = player?.next;
+  const playPauseSafe = player?.playPause;
+
+  // ---- Now it's safe to declare effects and memos (they always run in same order) ----
+
+  useEffect(() => {
+    // Only perform side-effects if the functions exist.
+    const last = getLastSearch?.();
+    if (last?.items) {
+      setQueueSafe?.(last.items);
+    }
+    setRightSidebarKey?.("player");
+    return () => setRightSidebarKey?.(null);
+    // intentionally minimal deps; these refs are stable-ish (functions from context)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // helper for search-derived "flat" items (optional)
+  const flat = useMemo(() => getLastSearch?.()?.items ?? [], [getLastSearch]);
+
+  const found = useMemo(() => {
+    if (!id || !Array.isArray(flat) || !flat.length) return null;
+    return flat.find(
+      (s) => s?.id === id || (s?.webpage_url && s.webpage_url.includes(id))
+    );
+  }, [flat, id]);
+
+  // pick track from found or player
+  const track = found || currentTrackSafe || null;
+
+  // duration preference: player.duration (live) or track.duration fallback
+  const trackDuration = useMemo(() => {
+    player?.setDuration(track?.duration);
+    const n = Number(durationSafe ?? track?.duration ?? 0);
+    console.log("Duration: ", durationSafe);
+
+    return Number.isFinite(n) ? n : 0;
+  }, [durationSafe, track?.duration]);
+
+  // compute pct from player position (safe)
+  const pctFromCtx = Math.max(
+    0,
+    Math.min(1, (positionSafe || 0) / Math.max(1, trackDuration))
+  );
+
+  // now safe early return: we've already called hooks above
   if (!player) {
-    // Show a friendly placeholder if PlayerProvider is not mounted
     return (
       <View style={[styles.fullCenter, { backgroundColor: theme.background }]}>
         <Text style={{ color: theme.text || "#000" }}>
@@ -61,6 +120,7 @@ export default function PlayerPage() {
     );
   }
 
+  // Now destructure live player (you can keep using the safe vars above if you prefer)
   const {
     queue,
     setQueue,
@@ -82,212 +142,19 @@ export default function PlayerPage() {
     setDuration,
   } = player;
 
-  const { viewMode, getLastSearch, setLastSearch } = useAppStorage();
-
-  // find track in search results first (we expect augmentation with `id`)
-  // const flat = getFlatItems && typeof getFlatItems === "function" ? getFlatItems() : [];
-  const flat = getLastSearch()?.items;
-  const found = useMemo(() => {
-    if (!id || !flat || !flat.length) return null;
-    return flat.find(
-      (s) => s?.id === id || (s?.webpage_url && s.webpage_url.includes(id))
-    );
-  }, [flat, id]);
-
-  // prefer found, then currentTrack
-  const track = found || currentTrack || null;
-
-  // keep right sidebar key
-  useEffect(() => {
-    setRightSidebarKey?.("player");
-    setQueue?.(getLastSearch()?.items);
-    console.log("Current Track: ", queue);
-
-    return () => setRightSidebarKey?.(null);
-  }, [setRightSidebarKey]);
-
-  // Web audio wiring
-  const audioRef = useRef(null);
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    // lazily create audio element
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
-      audioRef.current.preload = "metadata";
-      audioRef.current.crossOrigin = "anonymous";
-    }
-    const audio = audioRef.current;
-
-    const onTime = () => setPosition?.(audio.currentTime || 0);
-    const onDur = () =>
-      setDuration?.(isFinite(audio.duration) ? audio.duration : 0);
-    const onEnded = () => next?.();
-    const onWaiting = () => {};
-    const onPlaying = () => {};
-
-    audio.addEventListener("timeupdate", onTime);
-    audio.addEventListener("durationchange", onDur);
-    audio.addEventListener("ended", onEnded);
-    audio.addEventListener("waiting", onWaiting);
-    audio.addEventListener("playing", onPlaying);
-
-    return () => {
-      audio.removeEventListener("timeupdate", onTime);
-      audio.removeEventListener("durationchange", onDur);
-      audio.removeEventListener("ended", onEnded);
-      audio.removeEventListener("waiting", onWaiting);
-      audio.removeEventListener("playing", onPlaying);
-    };
-  }, [next, setDuration, setPosition]);
-
-  // when track changes, set audio.src (web)
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    if (!audioRef.current) return;
-    const audio = audioRef.current;
-    const url = getStreamUrl?.(track) ?? null;
-    if (url) {
-      // update src
-      audio.src = url;
-      // if context is playing, try to play audio too
-      if (isPlaying) {
-        audio.play().catch(() => {});
-      } else {
-        audio.pause();
-      }
-    } else {
-      audio.src = "";
-    }
-  }, [track?.webpage_url, getStreamUrl, isPlaying]);
-
-  // keep play/pause in sync with audio on web
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (isPlaying) audio.play().catch(() => {});
-    else audio.pause();
-  }, [isPlaying]);
-
-  // Seekbar mechanics
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragPct, setDragPct] = useState(0);
-  const progressRef = useRef(null);
-  const rectRef = useRef({ left: 0, width: 0, measured: false });
-
-  const measure = useCallback(() => {
-    const n = progressRef.current;
-    if (!n) return null;
-    try {
-      if (n.getBoundingClientRect) {
-        const r = n.getBoundingClientRect();
-        rectRef.current = { left: r.left, width: r.width, measured: true };
-        return rectRef.current;
-      }
-    } catch (e) {}
-    return null;
-  }, []);
-
-  const clientXToRatio = useCallback((clientX) => {
-    const { left = 0, width = 0 } = rectRef.current;
-    if (!width) return 0;
-    const offset = clientX - left;
-    return Math.max(0, Math.min(1, offset / width));
-  }, []);
-
-  // PanResponder for native
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt, gesture) => {
-        setIsDragging(true);
-        measure();
-        const native = evt.nativeEvent || {};
-        const clientX = native.pageX ?? gesture.x0 ?? native.locationX;
-        setDragPct(clientXToRatio(clientX));
-      },
-      onPanResponderMove: (evt, gesture) => {
-        const native = evt.nativeEvent || {};
-        const clientX = native.pageX ?? gesture.moveX ?? native.locationX;
-        setDragPct(clientXToRatio(clientX));
-      },
-      onPanResponderRelease: (evt, gesture) => {
-        const native = evt.nativeEvent || {};
-        const clientX = native.pageX ?? gesture.moveX ?? native.locationX;
-        const ratio = clientXToRatio(clientX);
-        seek?.(ratio * (track?.duration || duration || 0));
-        setIsDragging(false);
-      },
-      onPanResponderTerminate: () => setIsDragging(false),
-    })
-  ).current;
-
-  const onBarPress = useCallback(
-    (evt) => {
-      const native = evt.nativeEvent || {};
-      const clientX = native.clientX ?? native.pageX ?? native.locationX ?? 0;
-      if (!rectRef.current.measured) measure();
-      const ratio = clientXToRatio(clientX);
-      seek?.(ratio * (track?.duration || duration || 0));
-    },
-    [measure, clientXToRatio, seek, track, duration]
-  );
-
-  const curPosition = position || 0;
-  const curDuration = track?.duration || duration || 0;
-  const pct = isDragging
-    ? dragPct
-    : curDuration
-    ? Math.max(0, Math.min(1, curPosition / curDuration))
-    : 0;
-
-  // Play button handler: if track found in search and has index in queue, use playIndex; otherwise playSong
-  const handlePlay = useCallback(() => {
-    // if track exists in queue find index
-    const inQueueIndex = queue?.findIndex?.(
-      (t) =>
-        (t?.id && track?.id && t.id === track.id) ||
-        (t?.webpage_url &&
-          track?.webpage_url &&
-          t.webpage_url === track.webpage_url)
-    );
-    if (inQueueIndex >= 0 && typeof playIndex === "function") {
-      playIndex(inQueueIndex);
-    } else if (typeof playSong === "function") {
-      playSong(track, true);
-    } else if (typeof play === "function") {
-      play();
-    }
-  }, [queue, track, playIndex, playSong, play]);
-
-  const handlePrev = useCallback(() => {
-    if (typeof prev === "function") prev();
-  }, [prev]);
-  const handleNext = useCallback(() => {
-    if (typeof next === "function") next();
-  }, [next]);
-  const handlePlayPause = useCallback(() => {
-    if (typeof playPause === "function") playPause();
-  }, [playPause]);
-
-  // queue rendering and click-to-play
-  const onQueueItemPress = useCallback(
-    (idx) => {
-      if (typeof playIndex === "function") playIndex(idx);
-      else if (typeof playSong === "function") playSong(queue[idx], true);
-    },
-    [playIndex, playSong, queue]
-  );
-
-  // If no track at all show friendly message
+  // if track still not found, show friendly empty state
   if (!track) {
     return (
       <View style={[styles.fullCenter, { backgroundColor: theme.background }]}>
         <Text style={{ color: theme.text }}>
           No track found for id: {String(id)}
         </Text>
-        <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
+        <Text
+          style={{
+            color: themeMode === "dark" ? theme.textSecondary : "white",
+            marginTop: 8,
+          }}
+        >
           Make sure there's an active search or a playing track.
         </Text>
       </View>
@@ -305,103 +172,82 @@ export default function PlayerPage() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerRow}>
+        {/* <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={{ color: theme.textSecondary }}>Back</Text>
+            <Text
+              style={{
+                color: themeMode === "dark" ? theme.textSecondary : "white",
+              }}
+            >
+              Back
+            </Text>
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.text }]}>
             Player
           </Text>
           <View style={{ width: 48 }} />
-        </View>
+        </View> */}
 
-        <View style={styles.thumbWrap}>
+        <View style={styles.coverWrap}>
           <Image
             source={{ uri: track.largest_thumbnail }}
-            style={styles.thumb}
+            style={styles.coverImage}
           />
         </View>
 
-        <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
+        <Text style={[styles.title, { color: "white" }]} numberOfLines={2}>
           {he.decode(track.title || "Unknown")}
         </Text>
-        <Text style={[styles.uploader, { color: theme.textSecondary }]}>
+        <Text
+          style={[
+            styles.uploader,
+            { color: themeMode === "dark" ? theme.textSecondary : "white" },
+          ]}
+        >
           {track.uploader}
         </Text>
 
         <View style={styles.seekRow}>
-          <Text style={[styles.time, { color: theme.textSecondary }]}>
+          <Text
+            style={[
+              styles.time,
+              { color: themeMode === "dark" ? theme.textSecondary : "white" },
+            ]}
+          >
             {formatTime(
-              isDragging
-                ? Math.round((dragPct || 0) * (curDuration || 0))
-                : curPosition
+              Math.round(isNaN(trackDuration) ? 0 : pctFromCtx * trackDuration)
             )}
           </Text>
-
-          <View
-            ref={progressRef}
-            style={[
-              styles.progressContainer,
-              { backgroundColor: HEXA(theme.textSecondary, 0.12) },
-            ]}
-            {...(Platform.OS !== "web" ? panResponder.panHandlers : {})}
-          >
-            {Platform.OS === "web" ? (
-              <Pressable
-                style={StyleSheet.absoluteFill}
-                onPress={onBarPress}
-                onPointerDown={(e) => {
-                  // start drag sequence on web
-                  measure();
-                  setIsDragging(true);
-                  setDragPct(clientXToRatio(e.clientX));
-                  const onMove = (ev) => setDragPct(clientXToRatio(ev.clientX));
-                  const onUp = (ev) => {
-                    const ratio = clientXToRatio(ev.clientX);
-                    seek?.(ratio * (curDuration || 0));
-                    setIsDragging(false);
-                    window.removeEventListener("pointermove", onMove);
-                    window.removeEventListener("pointerup", onUp);
-                  };
-                  window.addEventListener("pointermove", onMove);
-                  window.addEventListener("pointerup", onUp);
-                }}
-              />
-            ) : (
-              <Pressable style={StyleSheet.absoluteFill} onPress={onBarPress} />
-            )}
-
-            {/* active bar */}
-            <View style={styles.activeBarWrapper}>
-              <View
-                style={[
-                  styles.activeBar,
-                  { width: `${pct * 100}%`, backgroundColor: theme.accent },
-                ]}
-              />
-            </View>
-
-            {/* thumb */}
-            <View
-              style={[
-                styles.thumbDot,
-                { left: `${pct * 100}%`, backgroundColor: theme.accent },
-              ]}
+          <View style={[{ width: "85%" }]}>
+            <SeekBar
+              progressPct={pctFromCtx}
+              duration={trackDuration}
+              onSeek={(sec) => seek?.(sec)}
+              accent={theme.accent}
+              background={HEXA(
+                themeMode === "dark" ? theme.textSecondary : "#fff",
+                0.12
+              )}
             />
           </View>
 
-          <Text style={[styles.time, { color: theme.textSecondary }]}>
-            {formatTime(curDuration)}
+          <Text
+            style={[
+              styles.time,
+              { color: themeMode === "dark" ? theme.textSecondary : "white" },
+            ]}
+          >
+            {formatTime(Math.round(trackDuration))}
           </Text>
         </View>
 
-        {/* controls */}
         <View style={styles.controls}>
-          <TouchableOpacity onPress={handlePrev}>
+          <TouchableOpacity onPress={prev}>
             <PreviousIcon color={theme.accent} />
           </TouchableOpacity>
+
           <TouchableOpacity
-            onPress={handlePlayPause}
+            onPress={playPause}
             style={[styles.playBtn, { backgroundColor: theme.accent }]}
           >
             {isPlaying ? (
@@ -410,7 +256,8 @@ export default function PlayerPage() {
               <PlayIcon color="#fff" size={30} />
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleNext}>
+
+          <TouchableOpacity onPress={next}>
             <NextIcon color={theme.accent} />
           </TouchableOpacity>
         </View>
@@ -436,19 +283,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headerTitle: { fontSize: 16, fontWeight: "700" },
-  thumbWrap: {
+
+  coverWrap: {
     width: 320,
     height: 320,
     borderRadius: 12,
     overflow: "hidden",
     marginTop: 18,
   },
-  thumb: {
+  coverImage: {
     width: "100%",
     height: "100%",
     resizeMode: "cover",
-    borderRadius: "100%",
   },
+
   title: {
     fontSize: 20,
     fontWeight: "700",
@@ -457,6 +305,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   uploader: { fontSize: 13, marginTop: 6 },
+
   seekRow: {
     width: "100%",
     flexDirection: "row",
@@ -464,31 +313,8 @@ const styles = StyleSheet.create({
     marginTop: 18,
     gap: 12,
   },
-  time: { width: 48, textAlign: "center", fontSize: 12 },
-  progressContainer: {
-    flex: 1,
-    height: 4,
-    borderRadius: 999,
-    position: "relative",
-    justifyContent: "center",
-  },
-  activeBarWrapper: {
-    position: "absolute",
-    left: 12,
-    right: 12,
-    height: "100%",
-    justifyContent: "center",
-  },
-  activeBar: { height: 4, borderRadius: 999 },
-  thumbDot: {
-    position: "absolute",
-    top: "50%",
-    right: 0,
-    marginTop: -8,
-    width: 16,
-    height: 16,
-    borderRadius: 999,
-  },
+  time: { width: 60, textAlign: "center", fontSize: 12 },
+
   controls: {
     flexDirection: "row",
     alignItems: "center",
@@ -501,14 +327,5 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-  },
-  metaRow: { width: "100%", marginTop: 20, display: "flex" },
-  queue: { width: "100%", marginTop: 12 },
-  queueItem: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#00000012",
-    display: "flex",
-    justifyContent: "space-between",
   },
 });
