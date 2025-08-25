@@ -202,11 +202,11 @@ export const PlayerSideBar = () => {
     <View
       // <View
       onLayout={onContainerLayout}
-      ref={listRef}
       // style={[styles.container, { backgroundColor: "red" }]}
       style={[styles.container, { backgroundColor: theme.backgroundSecondary }]}
     >
       <DraggableFlatList
+        ref={listRef}
         data={localData}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
