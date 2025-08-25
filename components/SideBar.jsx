@@ -4,7 +4,7 @@ import { StyleSheet, View, Text } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { useRightSidebar } from "../contexts/SidebarContext";
 import { HomeSideBar } from "./HomeSideBar";
-import PlayerSideBar from "./PlayerSideBar";
+import { PlayerSideBar } from "./PlayerSideBar";
 // import LibrarySidebar from "./sidebar/LibrarySidebar";
 // import SettingsSidebar from "./sidebar/SettingsSidebar";
 

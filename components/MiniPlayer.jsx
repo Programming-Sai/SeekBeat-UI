@@ -19,6 +19,7 @@ import { PreviousIcon } from "./PreviousIcon";
 import { NextIcon } from "./NextIcon";
 import he from "he";
 import { usePlayer } from "../contexts/PlayerContext";
+import { useRouter } from "expo-router";
 
 /**
  * Interactive MiniPlayer with click + drag seek.
@@ -40,7 +41,7 @@ export default function MiniPlayer() {
 
   // don't render anything if mini is closed or no current track
   if (!miniVisible || !currentTrack) return null;
-
+  const router = useRouter();
   const s = currentTrack;
   const duration = s.duration || 0;
   const playedSofar = position || 0;
@@ -183,7 +184,8 @@ export default function MiniPlayer() {
       <View style={styles.inner}>
         <TouchableOpacity
           onPress={() => {
-            /* open full player later */
+            router.push(`/player/${s.id}`);
+            closeMini(true);
           }}
           style={styles.imgBox}
         >

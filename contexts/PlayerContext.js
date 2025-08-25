@@ -284,6 +284,83 @@ export function PlayerProvider({
     if (pause) setIsPlaying(false);
   }, []);
 
+  /* --------- reorder/move queue helpers --------- */
+
+  // identity helper for songs
+  const sameSong = (a, b) => {
+    if (!a || !b) return false;
+    if (a.webpage_url && b.webpage_url) return a.webpage_url === b.webpage_url;
+    if (a.id && b.id) return a.id === b.id;
+    return a.title === b.title;
+  };
+
+  // Reorder queue by providing a new array (e.g. DraggableFlatList.onDragEnd provides `data`)
+  const reorderQueue = useCallback(
+    (newQueue = []) => {
+      if (!Array.isArray(newQueue)) return;
+      const next = newQueue.slice(0, 50);
+
+      setQueue((prev) => {
+        // try to preserve currently playing track by identity
+        const cur =
+          prev && prev.length && currentIndex >= 0 ? prev[currentIndex] : null;
+        if (!cur) {
+          // no current track -> reset to sensible index
+          setCurrentIndex(next.length ? 0 : -1);
+          return next;
+        }
+
+        const newIndex = next.findIndex((t) => sameSong(t, cur));
+        if (newIndex >= 0) {
+          setCurrentIndex(newIndex);
+        } else {
+          // current track not present in new list: clamp or stop
+          const idx = Math.max(0, Math.min(currentIndex, next.length - 1));
+          setCurrentIndex(next.length ? idx : -1);
+          if (!next.length) setIsPlaying(false);
+        }
+        return next;
+      });
+    },
+    [currentIndex]
+  );
+
+  // Move an item within queue by indices (from -> to), updating currentIndex mapping
+  const moveQueueItem = useCallback((fromIndex, toIndex) => {
+    setQueue((prev) => {
+      if (!Array.isArray(prev)) return prev || [];
+      const len = prev.length;
+      if (fromIndex < 0 || fromIndex >= len) return prev;
+      if (toIndex < 0) toIndex = 0;
+      if (toIndex >= len) toIndex = len - 1;
+      if (fromIndex === toIndex) return prev;
+
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, item);
+
+      // Update currentIndex based on move
+      setCurrentIndex((ci) => {
+        if (ci === fromIndex) {
+          // moved the currently playing track
+          return toIndex;
+        }
+        // if the moved item came from before current and moved after, currentIndex decreases by 1
+        if (fromIndex < ci && toIndex >= ci) {
+          return Math.max(0, ci - 1);
+        }
+        // if the moved item came from after current and moved before, currentIndex increases by 1
+        if (fromIndex > ci && toIndex <= ci) {
+          return Math.min(next.length - 1, ci + 1);
+        }
+        // otherwise unchanged
+        return ci;
+      });
+
+      return next;
+    });
+  }, []);
+
   /* --------- Stream URL helper --------- */
   const getStreamUrl = useCallback(
     (song) => {
@@ -335,6 +412,8 @@ export function PlayerProvider({
     removeFromQueue,
     setQueue: setQueueSafe,
 
+    reorderQueue,
+    moveQueueItem,
     // helpers
     getStreamUrl,
 
