@@ -16,11 +16,11 @@ import { useTheme } from "../contexts/ThemeContext";
 import { usePlayer } from "../contexts/PlayerContext";
 import he from "he";
 import formatTime from "../lib/utils";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import { HEXA } from "../lib/colors";
 
-const ITEM_HEIGHT = 72; // must match visual row height
+const ITEM_HEIGHT = 70; // must match visual row height
 
 export const PlayerSideBar = () => {
   const { theme } = useTheme();
@@ -33,11 +33,12 @@ export const PlayerSideBar = () => {
   } = usePlayer();
   const { getLastSearch } = useAppStorage();
   const router = useRouter();
-
   const [localData, setLocalData] = useState(queue || []);
   const listRef = useRef(null);
   const mountedRef = useRef(false);
   const layoutReadyRef = useRef(false);
+  const { id } = useLocalSearchParams();
+  const [currentId, setCurrentId] = useState(id);
 
   // Keep localData in sync with queue (but don't stomp if user is actively dragging)
   useEffect(() => {
@@ -108,7 +109,7 @@ export const PlayerSideBar = () => {
         inner?.scrollToOffset?.({ offset, animated: true });
       } catch (e) {
         // give up silently
-        // console.warn("scroll fallback failed", e);
+        console.warn("scroll fallback failed", e);
       }
     }
   }, []);
@@ -134,12 +135,13 @@ export const PlayerSideBar = () => {
   const renderItem = useCallback(
     ({ item, drag, isActive, index }) => {
       const isPlaying = index === currentIndex;
-
+      const isSelected = String(currentId) === String(item?.id);
       return (
         <ScaleDecorator>
           <TouchableOpacity
             onPress={() => {
               playIndex(index);
+              setCurrentId(item?.id);
               router.push?.(`/player/${item?.id ?? index}`);
             }}
             onLongPress={drag}
@@ -149,8 +151,8 @@ export const PlayerSideBar = () => {
               {
                 backgroundColor: isActive
                   ? theme.accent
-                  : isPlaying
-                  ? HEXA(theme.accent, 0.12)
+                  : isSelected
+                  ? HEXA(theme.accent, 0.1)
                   : theme.background,
                 borderColor: isPlaying ? theme.accent : "transparent",
                 borderWidth: isPlaying ? 1 : 0,
@@ -178,13 +180,15 @@ export const PlayerSideBar = () => {
             <View
               style={{ width: 20, height: 20, opacity: 0.6, marginLeft: 8 }}
             >
-              <Text style={{ color: theme.textSecondary }}>≡</Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 20 }}>
+                ≡
+              </Text>
             </View>
           </TouchableOpacity>
         </ScaleDecorator>
       );
     },
-    [currentIndex, playIndex, router, theme]
+    [currentId, currentIndex, playIndex, router, theme]
   );
 
   if (!Array.isArray(localData) || localData.length === 0) {
@@ -208,6 +212,7 @@ export const PlayerSideBar = () => {
       <DraggableFlatList
         ref={listRef}
         data={localData}
+        extraData={id}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         onDragEnd={({ data }) => {
@@ -236,7 +241,7 @@ export const PlayerSideBar = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 12, height: "10rem" }, // minHeight:0 important on web
+  container: { padding: 12, height: "90vh" }, // minHeight:0 important on web
   item: {
     height: ITEM_HEIGHT - 6,
     flexDirection: "row",

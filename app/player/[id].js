@@ -56,15 +56,23 @@ export default function PlayerPage() {
   const { getLastSearch } = appStorage ?? {};
 
   // safe references to player methods (may be undefined until player exists)
+
   const setQueueSafe = player?.setQueue;
   const currentTrackSafe = player?.currentTrack;
   const positionSafe = player?.position;
   const durationSafe = player?.duration;
-  const isPlayingSafe = player?.isPlaying;
-  const seekSafe = player?.seek;
-  const prevSafe = player?.prev;
-  const nextSafe = player?.next;
-  const playPauseSafe = player?.playPause;
+
+  // const queue = player?.queue;
+  const {
+    queue,
+    isPlaying,
+    playPause,
+    next,
+    prev,
+    seek,
+    setCurrentIndex,
+    currentIndex,
+  } = player;
 
   // ---- Now it's safe to declare effects and memos (they always run in same order) ----
 
@@ -74,6 +82,7 @@ export default function PlayerPage() {
     if (last?.items) {
       setQueueSafe?.(last.items);
     }
+    // console.log("QUEUE: ", queue);
     setRightSidebarKey?.("player");
     return () => setRightSidebarKey?.(null);
     // intentionally minimal deps; these refs are stable-ish (functions from context)
@@ -81,14 +90,23 @@ export default function PlayerPage() {
   }, []);
 
   // helper for search-derived "flat" items (optional)
-  const flat = useMemo(() => getLastSearch?.()?.items ?? [], [getLastSearch]);
+  const flat = useMemo(() => queue, [queue]);
 
-  const found = useMemo(() => {
-    if (!id || !Array.isArray(flat) || !flat.length) return null;
-    return flat.find(
+  const foundIndex = useMemo(() => {
+    if (!id || !Array.isArray(flat) || !flat.length) return -1;
+    return flat.findIndex(
       (s) => s?.id === id || (s?.webpage_url && s.webpage_url.includes(id))
     );
   }, [flat, id]);
+
+  const found = foundIndex >= 0 ? flat[foundIndex] : null;
+
+  // When foundIndex changes, set the current index in player
+  useEffect(() => {
+    if (foundIndex >= 0) {
+      setCurrentIndex?.(foundIndex);
+    }
+  }, [foundIndex, setCurrentIndex]);
 
   // pick track from found or player
   const track = found || currentTrackSafe || null;
@@ -97,7 +115,7 @@ export default function PlayerPage() {
   const trackDuration = useMemo(() => {
     player?.setDuration(track?.duration);
     const n = Number(durationSafe ?? track?.duration ?? 0);
-    console.log("Duration: ", durationSafe);
+    // console.log("Duration: ", durationSafe);
 
     return Number.isFinite(n) ? n : 0;
   }, [durationSafe, track?.duration]);
@@ -121,26 +139,6 @@ export default function PlayerPage() {
   }
 
   // Now destructure live player (you can keep using the safe vars above if you prefer)
-  const {
-    queue,
-    setQueue,
-    currentIndex,
-    currentTrack,
-    isPlaying,
-    position,
-    duration,
-    playIndex,
-    playSong,
-    play,
-    pause,
-    playPause,
-    next,
-    prev,
-    seek,
-    getStreamUrl,
-    setPosition,
-    setDuration,
-  } = player;
 
   // if track still not found, show friendly empty state
   if (!track) {
@@ -242,7 +240,12 @@ export default function PlayerPage() {
         </View>
 
         <View style={styles.controls}>
-          <TouchableOpacity onPress={prev}>
+          <TouchableOpacity
+            onPress={() => {
+              router.push(`/player/${queue[currentIndex - 1]?.id}`);
+              prev();
+            }}
+          >
             <PreviousIcon color={theme.accent} />
           </TouchableOpacity>
 
@@ -257,7 +260,12 @@ export default function PlayerPage() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={next}>
+          <TouchableOpacity
+            onPress={() => {
+              router.push(`/player/${queue[currentIndex + 1]?.id}`);
+              next();
+            }}
+          >
             <NextIcon color={theme.accent} />
           </TouchableOpacity>
         </View>

@@ -389,6 +389,7 @@ export function PlayerProvider({
     queue,
     currentIndex,
     currentTrack,
+    setCurrentIndex,
     isPlaying,
     position,
     duration,
