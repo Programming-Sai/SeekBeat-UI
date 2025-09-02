@@ -92,20 +92,47 @@ export default function PlayerPage() {
     seek,
     setCurrentIndex,
     currentIndex,
+    shuffle,
+    setShuffle,
+    setRepeatMode,
+    repeatMode,
   } = player;
 
   const queueCommands = [
-    () => {
-      return <PlayInOrder size={25} color={theme.text} />;
+    {
+      icon: () => {
+        return <PlayInOrder size={25} color={theme.text} />;
+      },
+      func: () => {
+        setShuffle(false);
+        setRepeatMode("none");
+      },
     },
-    () => {
-      return <ShuffleIcon size={25} color={theme.text} />;
+    {
+      icon: () => {
+        return <ShuffleIcon size={25} color={theme.text} />;
+      },
+      func: () => {
+        setShuffle(true);
+      },
     },
-    () => {
-      return <RepeatAllIcon size={25} color={theme.text} />;
+    {
+      icon: () => {
+        return <RepeatAllIcon size={25} color={theme.text} />;
+      },
+      func: () => {
+        setShuffle(false);
+        setRepeatMode("all");
+      },
     },
-    () => {
-      return <RepeatOneIcon size={25} color={theme.text} />;
+    {
+      icon: () => {
+        return <RepeatOneIcon size={25} color={theme.text} />;
+      },
+      func: () => {
+        setShuffle(false);
+        setRepeatMode("one");
+      },
     },
   ];
 
@@ -176,6 +203,7 @@ export default function PlayerPage() {
 
   const onChangeQueueCommand = () => {
     setQueueCommandIndex((prev) => (prev + 1) % queueCommands.length);
+    queueCommands[queueCommandIndex]?.func();
   };
 
   const handleEdit = () => {
@@ -841,7 +869,7 @@ export default function PlayerPage() {
             ]}
             onPress={onChangeQueueCommand}
           >
-            {queueCommands[queueCommandIndex]()}
+            {queueCommands[queueCommandIndex]?.icon()}
           </TouchableOpacity>
           <View style={[styles.controls, { width: "auto", marginTop: 0 }]}>
             <TouchableOpacity

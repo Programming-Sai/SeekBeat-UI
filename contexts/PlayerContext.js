@@ -34,6 +34,9 @@ export function PlayerProvider({
   const [queue, setQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
+  // playback modes
+  const [shuffle, setShuffle] = useState(false);
+  const [repeatMode, setRepeatMode] = useState("none"); // "none" | "one" | "all"
 
   // whether the mini player UI should be visible (open)
   const [miniVisible, setMiniVisible] = useState(false);
@@ -92,15 +95,12 @@ export function PlayerProvider({
       setPosition((p) => {
         const next = p + dt;
         if (duration && next >= duration) {
-          // reached end -> stop and auto-advance
-          // small timeout to avoid state update conflicts inside RAF
           setTimeout(() => {
-            // auto-next if queue has more items
-            if (currentIndex + 1 < queue.length) {
-              setCurrentIndex((ci) => Math.min(queue.length - 1, ci + 1));
+            if (repeatMode === "one") {
+              // restart same track
               setPosition(0);
             } else {
-              setIsPlaying(false);
+              next(); // call the function we defined above
             }
           }, 0);
           return duration;
@@ -182,13 +182,27 @@ export function PlayerProvider({
   const next = useCallback(() => {
     setPosition(0);
     setCurrentIndex((ci) => {
-      if (ci + 1 >= queue.length) {
-        setIsPlaying(false);
-        return ci;
+      if (shuffle && queue.length > 1) {
+        // pick a random track that isn't the current one
+        let nextIdx;
+        do {
+          nextIdx = Math.floor(Math.random() * queue.length);
+        } while (nextIdx === ci);
+        return nextIdx;
       }
+
+      if (ci + 1 >= queue.length) {
+        if (repeatMode === "all") {
+          return 0; // loop back
+        } else {
+          setIsPlaying(false);
+          return ci; // stop at end
+        }
+      }
+
       return ci + 1;
     });
-  }, [queue.length]);
+  }, [queue.length, shuffle, repeatMode]);
 
   const prev = useCallback(() => {
     setPosition(0);
@@ -377,6 +391,18 @@ export function PlayerProvider({
     [streamBase]
   );
 
+  const toggleShuffle = useCallback(() => {
+    setShuffle((s) => !s);
+  }, []);
+
+  const cycleRepeatMode = useCallback(() => {
+    setRepeatMode((prev) => {
+      if (prev === "none") return "all";
+      if (prev === "all") return "one";
+      return "none";
+    });
+  }, []);
+
   /* --------- cleanup --------- */
   useEffect(() => {
     return () => {
@@ -421,6 +447,13 @@ export function PlayerProvider({
     miniVisible,
     showMiniForIndex,
     closeMini,
+
+    shuffle,
+    setShuffle,
+    setRepeatMode,
+    repeatMode,
+    toggleShuffle,
+    cycleRepeatMode,
   };
 
   return (
