@@ -1,6 +1,6 @@
 import React from "react";
 
-export function DownloasdIcon({ size = 24, color = "currentColor" }) {
+export function DownloadIcon({ size = 24, color = "currentColor" }) {
   return (
     <svg
       width={size}

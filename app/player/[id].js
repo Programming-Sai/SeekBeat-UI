@@ -1,5 +1,5 @@
 // app/player/[id].js
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ImageBackground,
   TouchableOpacity,
   ScrollView,
+  TextInput,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRightSidebar } from "../../contexts/SidebarContext";
@@ -23,6 +24,18 @@ import { PlayIcon } from "../../components/PlayIcon";
 import { NextIcon } from "../../components/NextIcon";
 import { useAppStorage } from "../../contexts/AppStorageContext";
 import SeekBar from "../../components/SeekBar";
+import { PlayInOrder } from "../../components/PlayInOrder";
+import { ShuffleIcon } from "../../components/ShufleIcon";
+import { RepeatAllIcon } from "../../components/RepeatAllIcon";
+import { RepeatOneIcon } from "../../components/RepeatOneIcon";
+import { SpeedIcon } from "../../components/SpeedIcon";
+import { VolumeIcon } from "../../components/VolumeIcon";
+import { DownloadIcon } from "../../components/DownloadIcon";
+import { EditIcon } from "../../components/EditIcon";
+import { InlineMenu } from "../../components/InlineMenu";
+import { MoreIcon } from "../../components/MoreIcon";
+import { useSearchParams } from "expo-router/build/hooks";
+import * as ImagePicker from "expo-image-picker";
 
 /**
  * Full Player Page (fixed hook ordering)
@@ -30,10 +43,12 @@ import SeekBar from "../../components/SeekBar";
 export default function PlayerPage() {
   const { id } = useLocalSearchParams();
   const { edit } = useLocalSearchParams();
-  const isEditor = edit === "true";
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // const params = new URLSearchParams(searchParams);
+  const [isEditor, setIsEditor] = useState(edit === "true");
 
-  console.log("Editor Page: ", isEditor);
+  const [queueCommandIndex, setQueueCommandIndex] = useState(0);
 
   // call all hooks unconditionally (important!)
   const rightSidebarCtx = useRightSidebar();
@@ -77,6 +92,23 @@ export default function PlayerPage() {
     setCurrentIndex,
     currentIndex,
   } = player;
+
+  const queueCommands = [
+    () => {
+      return <PlayInOrder size={25} color={theme.text} />;
+    },
+    () => {
+      return <ShuffleIcon size={25} color={theme.text} />;
+    },
+    () => {
+      return <RepeatAllIcon size={25} color={theme.text} />;
+    },
+    () => {
+      return <RepeatOneIcon size={25} color={theme.text} />;
+    },
+  ];
+
+  // console.log("Is editor:", isEditor);
 
   // ---- Now it's safe to declare effects and memos (they always run in same order) ----
 
@@ -130,6 +162,66 @@ export default function PlayerPage() {
     Math.min(1, (positionSafe || 0) / Math.max(1, trackDuration))
   );
 
+  const backendVolume = (percentage) => {
+    // percentage: 0–100
+    // Map 0–100% to 0–5 backend scale
+    return Math.round((percentage / 100) * 10) / 2; // rounds to nearest 0.5
+  };
+
+  const displayPercentage = (backendValue) => {
+    // backendValue: 0, 0.5, 1, ...
+    return (backendValue / 5) * 100;
+  };
+
+  const onChangeQueueCommand = () => {
+    setQueueCommandIndex((prev) => (prev + 1) % queueCommands.length);
+  };
+
+  const handleEdit = () => {
+    const newIsEditor = !isEditor;
+
+    if (newIsEditor) {
+      // Add ?edit=true
+      router.push(`/player/${id}?edit=true`, undefined, { shallow: true });
+    } else {
+      // Remove ?edit
+      router.push(`/player/${id}`, undefined, { shallow: true });
+    }
+
+    setIsEditor(newIsEditor);
+  };
+
+  const [edits, setEdits] = useState({
+    speed: 1.25,
+    trim: { start_time: 0, end_time: track?.duration },
+    volume: 0.5,
+    metadata: {
+      title: track?.title,
+      artist: track?.uploader,
+      album: track?.uploader,
+      date: track?.upload_date,
+      genre: null,
+      url: track?.webpage_url,
+      thumbnail: track?.largest_thumbnail,
+    },
+  });
+
+  const pickImage = async () => {
+    // If using expo-image-picker (native + web):
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setEdits((prev) => ({
+        ...prev,
+        metadata: { ...prev.metadata, thumbnail: result.assets[0].uri },
+      }));
+    }
+  };
+
   // now safe early return: we've already called hooks above
   if (!player) {
     return (
@@ -165,7 +257,11 @@ export default function PlayerPage() {
 
   return (
     <ImageBackground
-      source={{ uri: track.largest_thumbnail || track.thumbnail || "" }}
+      source={{
+        uri: isEditor
+          ? edits?.metadata?.thumbnail
+          : track.largest_thumbnail || track.thumbnail || "",
+      }}
       blurRadius={60}
       style={[styles.background, { backgroundColor: theme.background }]}
       resizeMode="cover"
@@ -191,23 +287,150 @@ export default function PlayerPage() {
         </View> */}
 
         <View style={styles.coverWrap}>
-          <Image
-            source={{ uri: track.largest_thumbnail }}
-            style={styles.coverImage}
-          />
+          {isEditor ? (
+            // View Mode (just show image)
+            <Image
+              source={{ uri: track.largest_thumbnail }}
+              style={styles.coverImage}
+            />
+          ) : (
+            // Edit Mode (image + change button)
+            <View style={{ alignItems: "center" }}>
+              <TouchableOpacity
+                style={styles.changeImageBtn}
+                onPress={pickImage} // function that opens picker
+              >
+                <Text style={{ color: "white" }}>Change Image</Text>
+                <Image
+                  source={{
+                    uri: edits?.metadata?.thumbnail || track.largest_thumbnail,
+                  }}
+                  style={[styles.coverImage, styles.coverWrap]}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
-        <Text style={[styles.title, { color: "white" }]} numberOfLines={2}>
-          {he.decode(track.title || "Unknown")}
-        </Text>
-        <Text
-          style={[
-            styles.uploader,
-            { color: themeMode === "dark" ? theme.textSecondary : "white" },
-          ]}
-        >
-          {track.uploader}
-        </Text>
+        {isEditor ? (
+          <Text style={[styles.title, { color: "white" }]} numberOfLines={2}>
+            {he.decode(track.title || "Unknown")}
+          </Text>
+        ) : (
+          <TextInput
+            value={edits?.metadata?.title}
+            onChangeText={(text) =>
+              setEdits((prev) => ({
+                ...prev,
+                metadata: { ...prev.metadata, title: text },
+              }))
+            }
+            style={[
+              styles.editTitle,
+              {
+                color: theme.text,
+                backgroundColor: HEXA(theme.textSecondary, 0.4),
+              },
+            ]}
+            placeholderTextColor={theme.textSecondary}
+          />
+        )}
+        {isEditor ? (
+          <Text
+            style={[
+              styles.uploader,
+              { color: themeMode === "dark" ? theme.textSecondary : "white" },
+            ]}
+          >
+            {track.uploader}
+          </Text>
+        ) : (
+          <TextInput
+            value={edits?.metadata?.artist}
+            onChangeText={(text) =>
+              setEdits((prev) => ({
+                ...prev,
+                metadata: { ...prev.metadata, artist: text },
+              }))
+            }
+            style={[
+              styles.editUploader,
+              {
+                color: theme.text,
+                backgroundColor: HEXA(theme.textSecondary, 0.4),
+              },
+            ]}
+            placeholderTextColor={theme.textSecondary}
+          />
+        )}
+
+        <View style={[styles.playControls]}>
+          <View
+            style={[
+              styles.playControl,
+              { backgroundColor: HEXA(theme.textSecondary, 0.4) },
+            ]}
+          >
+            <InlineMenu
+              trigger={<SpeedIcon size={25} color={theme.text} />}
+              options={[
+                { label: "0.25x", onPress: () => {} },
+                { label: "0.5x", onPress: () => {} },
+                { label: "0.75x", onPress: () => {} },
+                { label: "1x", onPress: () => {} },
+                { label: "1.25x", onPress: () => {} },
+                { label: "1.5x", onPress: () => {} },
+                { label: "1.75x", onPress: () => {} },
+                { label: "2x", onPress: () => {} },
+              ]}
+            />
+          </View>
+          <View
+            style={[
+              styles.playControl,
+              { backgroundColor: HEXA(theme.textSecondary, 0.4) },
+            ]}
+          >
+            <TouchableOpacity onPress={() => {}}>
+              <DownloadIcon size={25} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+          <View
+            style={[
+              styles.playControl,
+              { backgroundColor: HEXA(theme.textSecondary, 0.4) },
+            ]}
+          >
+            <TouchableOpacity onPress={handleEdit}>
+              <EditIcon size={25} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+          <View
+            style={[
+              styles.playControl,
+              { backgroundColor: HEXA(theme.textSecondary, 0.4) },
+            ]}
+          >
+            <InlineMenu
+              trigger={<VolumeIcon size={25} color={theme.text} />}
+              options={[
+                { label: `${displayPercentage(0)}%`, onPress: () => {} },
+                // { label: `${displayPercentage(0.5)}%`, onPress: () => {} },
+                // { label: `${displayPercentage(1)}%`, onPress: () => {} },
+                { label: `${displayPercentage(1.25)}%`, onPress: () => {} },
+                // { label: `${displayPercentage(1.5)}%`, onPress: () => {} },
+                // { label: `${displayPercentage(2)}%`, onPress: () => {} },
+                { label: `${displayPercentage(2.5)}%`, onPress: () => {} },
+                // { label: `${displayPercentage(3)}%`, onPress: () => {} },
+                // { label: `${displayPercentage(3.5)}%`, onPress: () => {} },
+                { label: `${displayPercentage(3.75)}%`, onPress: () => {} },
+                // { label: `${displayPercentage(4)}%`, onPress: () => {} },
+                // { label: `${displayPercentage(4.5)}%`, onPress: () => {} },
+                { label: `${displayPercentage(5)}%`, onPress: () => {} },
+              ]}
+            />
+          </View>
+        </View>
 
         <View style={styles.seekRow}>
           <Text
@@ -243,43 +466,59 @@ export default function PlayerPage() {
           </Text>
         </View>
 
-        <View style={styles.controls}>
+        <View style={[styles.controls]}>
           <TouchableOpacity
-            onPress={() => {
-              router.push(
-                `/player/${queue[currentIndex - 1]?.id}${
-                  isEditor ? "?edit=true" : ""
-                }`
-              );
-              prev();
-            }}
+            style={[
+              styles.queueControls,
+              {
+                padding: 10,
+                backgroundColor: HEXA(theme.textSecondary, 0.4),
+                borderRadius: 100,
+              },
+            ]}
+            onPress={onChangeQueueCommand}
           >
-            <PreviousIcon color={theme.accent} />
+            {queueCommands[queueCommandIndex]()}
           </TouchableOpacity>
+          <View style={[styles.controls, { width: "auto", marginTop: 0 }]}>
+            <TouchableOpacity
+              onPress={() => {
+                router.push(
+                  `/player/${queue[currentIndex - 1]?.id}${
+                    isEditor ? "?edit=true" : ""
+                  }`
+                );
+                prev();
+              }}
+            >
+              <PreviousIcon color={theme.accent} />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={playPause}
-            style={[styles.playBtn, { backgroundColor: theme.accent }]}
-          >
-            {isPlaying ? (
-              <PauseIcon color="#fff" size={30} />
-            ) : (
-              <PlayIcon color="#fff" size={30} />
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={playPause}
+              style={[styles.playBtn, { backgroundColor: theme.accent }]}
+            >
+              {isPlaying ? (
+                <PauseIcon color="#fff" size={30} />
+              ) : (
+                <PlayIcon color="#fff" size={30} />
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => {
-              router.push(
-                `/player/${queue[currentIndex + 1]?.id}${
-                  isEditor ? "?edit=true" : ""
-                }`
-              );
-              next();
-            }}
-          >
-            <NextIcon color={theme.accent} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                router.push(
+                  `/player/${queue[currentIndex + 1]?.id}${
+                    isEditor ? "?edit=true" : ""
+                  }`
+                );
+                next();
+              }}
+            >
+              <NextIcon color={theme.accent} />
+            </TouchableOpacity>
+          </View>
+          <MoreIcon size={25} color={theme.text} />
         </View>
       </ScrollView>
     </ImageBackground>
@@ -325,6 +564,12 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   uploader: { fontSize: 13, marginTop: 6 },
+  editUploader: {
+    fontSize: 13,
+    marginTop: 10,
+    padding: 5,
+    textAlign: "center",
+  },
 
   seekRow: {
     width: "100%",
@@ -338,8 +583,11 @@ const styles = StyleSheet.create({
   controls: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 28,
-    marginTop: 20,
+    marginTop: 30,
+    width: "95%",
+    // border: "2px solid red",
   },
   playBtn: {
     width: 64,
@@ -347,5 +595,27 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
+  },
+  playControl: {
+    // backgroundColor: "red",
+    padding: 10,
+    borderRadius: 100,
+  },
+  playControls: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    // border: "2px solid red",
+    width: "80%",
+    flexDirection: "row",
+    marginVertical: 10,
+  },
+  editTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 16,
+    textAlign: "center",
+    width: "100%",
+    padding: 5,
   },
 });
