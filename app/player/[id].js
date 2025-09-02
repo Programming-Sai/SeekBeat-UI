@@ -452,14 +452,134 @@ export default function PlayerPage() {
             <InlineMenu
               trigger={<SpeedIcon size={25} color={theme.text} />}
               options={[
-                { label: "0.25x", onPress: () => {} },
-                { label: "0.5x", onPress: () => {} },
-                { label: "0.75x", onPress: () => {} },
-                { label: "1x", onPress: () => {} },
-                { label: "1.25x", onPress: () => {} },
-                { label: "1.5x", onPress: () => {} },
-                { label: "1.75x", onPress: () => {} },
-                { label: "2x", onPress: () => {} },
+                {
+                  label: "0.25x",
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          speed: 0.25,
+                          metadata: { ...prev.metadata },
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: "0.5x",
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          speed: 0.5,
+                          metadata: { ...prev.metadata },
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: "0.75x",
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          speed: 0.75,
+                          metadata: { ...prev.metadata },
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: "1x",
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          speed: 1,
+                          metadata: { ...prev.metadata },
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: "1.25x",
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          speed: 1.25,
+                          metadata: { ...prev.metadata },
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: "1.5x",
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          speed: 1.5,
+                          metadata: { ...prev.metadata },
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: "1.75x",
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          speed: 1.75,
+                          metadata: { ...prev.metadata },
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: "2x",
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          speed: 2,
+                          metadata: { ...prev.metadata },
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
               ]}
             />
           </View>
@@ -492,19 +612,81 @@ export default function PlayerPage() {
             <InlineMenu
               trigger={<VolumeIcon size={25} color={theme.text} />}
               options={[
-                { label: `${displayPercentage(0)}%`, onPress: () => {} },
-                // { label: `${displayPercentage(0.5)}%`, onPress: () => {} },
-                // { label: `${displayPercentage(1)}%`, onPress: () => {} },
-                { label: `${displayPercentage(1.25)}%`, onPress: () => {} },
-                // { label: `${displayPercentage(1.5)}%`, onPress: () => {} },
-                // { label: `${displayPercentage(2)}%`, onPress: () => {} },
-                { label: `${displayPercentage(2.5)}%`, onPress: () => {} },
-                // { label: `${displayPercentage(3)}%`, onPress: () => {} },
-                // { label: `${displayPercentage(3.5)}%`, onPress: () => {} },
-                { label: `${displayPercentage(3.75)}%`, onPress: () => {} },
-                // { label: `${displayPercentage(4)}%`, onPress: () => {} },
-                // { label: `${displayPercentage(4.5)}%`, onPress: () => {} },
-                { label: `${displayPercentage(5)}%`, onPress: () => {} },
+                {
+                  label: `${displayPercentage(0)}%`,
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          volume: 0,
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: `${displayPercentage(1.25)}%`,
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          volume: 1.25,
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: `${displayPercentage(2.5)}%`,
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          volume: 2.5,
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: `${displayPercentage(3.75)}%`,
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          volume: 3.75,
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
+                {
+                  label: `${displayPercentage(5)}%`,
+                  onPress: () => {
+                    if (isEditor) {
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          volume: 5,
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }
+                  },
+                },
               ]}
             />
           </View>
