@@ -29,6 +29,7 @@ export default function SideBar() {
     ),
     home: () => <HomeSideBar />,
     player: () => <PlayerSideBar />,
+    playerEdit: () => <PlayerSideBar edit={true} />,
   };
 
   const SidebarComponent = rightSidebarKey

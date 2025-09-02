@@ -22,7 +22,7 @@ import { HEXA } from "../lib/colors";
 
 const ITEM_HEIGHT = 70; // must match visual row height
 
-export const PlayerSideBar = () => {
+export const PlayerSideBar = ({ edit }) => {
   const { theme } = useTheme();
   const {
     queue = [],
@@ -38,6 +38,7 @@ export const PlayerSideBar = () => {
   const mountedRef = useRef(false);
   const layoutReadyRef = useRef(false);
   const { id } = useLocalSearchParams();
+  const isEditor = edit;
   const [currentId, setCurrentId] = useState(id);
 
   // Keep localData in sync with queue (but don't stomp if user is actively dragging)
@@ -142,7 +143,9 @@ export const PlayerSideBar = () => {
             onPress={() => {
               playIndex(index);
               setCurrentId(item?.id);
-              router.push?.(`/player/${item?.id ?? index}`);
+              router.push?.(
+                `/player/${item?.id ?? index}${isEditor ? "?edit=true" : ""}`
+              );
             }}
             onLongPress={drag}
             disabled={isActive}

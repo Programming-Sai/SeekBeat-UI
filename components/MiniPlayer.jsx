@@ -20,6 +20,8 @@ import { NextIcon } from "./NextIcon";
 import he from "he";
 import { usePlayer } from "../contexts/PlayerContext";
 import { useRouter } from "expo-router";
+import { InlineMenu } from "./InlineMenu";
+import { MoreIcon } from "./MoreIcon";
 
 /**
  * Interactive MiniPlayer with click + drag seek.
@@ -282,11 +284,41 @@ export default function MiniPlayer() {
         </View>
 
         <View style={styles.actions}>
-          <Pressable onPress={() => closeMini(true)}>
+          {/* <Pressable onPress={() => closeMini(true)}>
             <Text style={{ color: theme.textSecondary, fontSize: 20 }}>
               &#x2715;
             </Text>
-          </Pressable>
+          </Pressable> */}
+          <InlineMenu
+            trigger={<MoreIcon color={theme.text} size={25} />}
+            options={[
+              {
+                label: "Play",
+                onPress: () => {
+                  router.push(`/player/${s.id}`);
+                  closeMini(true);
+                },
+              },
+              {
+                label: "Edit",
+                onPress: () => {
+                  router.push(`/player/${s.id}?edit=true`);
+                  closeMini(true);
+                },
+              },
+              {
+                label: "Download",
+                onPress: () => {
+                  console.log("Downloading...");
+                  closeMini(true);
+                },
+              },
+              {
+                label: "Close",
+                onPress: () => closeMini(true),
+              },
+            ]}
+          />
         </View>
       </View>
     </View>

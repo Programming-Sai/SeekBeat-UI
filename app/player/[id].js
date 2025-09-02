@@ -29,7 +29,11 @@ import SeekBar from "../../components/SeekBar";
  */
 export default function PlayerPage() {
   const { id } = useLocalSearchParams();
+  const { edit } = useLocalSearchParams();
+  const isEditor = edit === "true";
   const router = useRouter();
+
+  console.log("Editor Page: ", isEditor);
 
   // call all hooks unconditionally (important!)
   const rightSidebarCtx = useRightSidebar();
@@ -83,7 +87,7 @@ export default function PlayerPage() {
       setQueueSafe?.(last.items);
     }
     // console.log("QUEUE: ", queue);
-    setRightSidebarKey?.("player");
+    setRightSidebarKey?.(isEditor ? "playerEdit" : "player");
     return () => setRightSidebarKey?.(null);
     // intentionally minimal deps; these refs are stable-ish (functions from context)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,7 +246,11 @@ export default function PlayerPage() {
         <View style={styles.controls}>
           <TouchableOpacity
             onPress={() => {
-              router.push(`/player/${queue[currentIndex - 1]?.id}`);
+              router.push(
+                `/player/${queue[currentIndex - 1]?.id}${
+                  isEditor ? "?edit=true" : ""
+                }`
+              );
               prev();
             }}
           >
@@ -262,7 +270,11 @@ export default function PlayerPage() {
 
           <TouchableOpacity
             onPress={() => {
-              router.push(`/player/${queue[currentIndex + 1]?.id}`);
+              router.push(
+                `/player/${queue[currentIndex + 1]?.id}${
+                  isEditor ? "?edit=true" : ""
+                }`
+              );
               next();
             }}
           >
