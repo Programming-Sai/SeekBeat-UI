@@ -36,6 +36,7 @@ import { InlineMenu } from "../../components/InlineMenu";
 import { MoreIcon } from "../../components/MoreIcon";
 import { useSearchParams } from "expo-router/build/hooks";
 import * as ImagePicker from "expo-image-picker";
+import MultiSlider from "@ptomasroos/react-native-multi-slider";
 
 /**
  * Full Player Page (fixed hook ordering)
@@ -190,21 +191,33 @@ export default function PlayerPage() {
 
     setIsEditor(newIsEditor);
   };
+  const [multiSliderWidth, setMultiSliderWidth] = useState(0);
 
-  const [edits, setEdits] = useState({
-    speed: 1.25,
-    trim: { start_time: 0, end_time: track?.duration },
-    volume: 0.5,
-    metadata: {
-      title: track?.title,
-      artist: track?.uploader,
-      album: track?.uploader,
-      date: track?.upload_date,
-      genre: null,
-      url: track?.webpage_url,
-      thumbnail: track?.largest_thumbnail,
-    },
-  });
+  const loadEdits = () => {
+    const stored = localStorage.getItem("@seekbeat:edits");
+    return stored ? JSON.parse(stored) : null;
+  };
+  const potentialEdits = loadEdits();
+
+  const [edits, setEdits] = useState(
+    (track?.webpage_url === potentialEdits?.webpage_url && potentialEdits) || {
+      speed: 1,
+      trim: { start_time: 0, end_time: track?.duration },
+      volume: 3.75,
+      metadata: {
+        title: track?.title,
+        artist: track?.uploader,
+        album: track?.uploader,
+        date: track?.upload_date,
+        genre: null,
+        url: track?.webpage_url,
+        thumbnail: track?.largest_thumbnail,
+      },
+    }
+  );
+
+  const [loopStart, setLoopStart] = useState(0);
+  const [loopEnd, setLoopEnd] = useState(track?.duratiosn);
 
   const pickImage = async () => {
     // If using expo-image-picker (native + web):
@@ -215,11 +228,23 @@ export default function PlayerPage() {
     });
 
     if (!result.canceled) {
-      setEdits((prev) => ({
-        ...prev,
-        metadata: { ...prev.metadata, thumbnail: result.assets[0].uri },
-      }));
+      setEdits((prev) => {
+        const edit = {
+          ...prev,
+          metadata: { ...prev.metadata, thumbnail: result.assets[0].uri },
+        };
+        saveEdits(edit);
+        return edit;
+      });
     }
+  };
+
+  const saveEdits = (edits) => {
+    localStorage.setItem("@seekbeat:edits", JSON.stringify(edits));
+  };
+
+  const clearEdits = () => {
+    localStorage.removeItem("@seekbeat:edits");
   };
 
   // now safe early return: we've already called hooks above
@@ -257,11 +282,7 @@ export default function PlayerPage() {
 
   return (
     <ImageBackground
-      source={{
-        uri: isEditor
-          ? edits?.metadata?.thumbnail
-          : track.largest_thumbnail || track.thumbnail || "",
-      }}
+      source={{ uri: track.largest_thumbnail || track.thumbnail || "" }}
       blurRadius={60}
       style={[styles.background, { backgroundColor: theme.background }]}
       resizeMode="cover"
@@ -270,24 +291,8 @@ export default function PlayerPage() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text
-              style={{
-                color: themeMode === "dark" ? theme.textSecondary : "white",
-              }}
-            >
-              Back
-            </Text>
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>
-            Player
-          </Text>
-          <View style={{ width: 48 }} />
-        </View> */}
-
         <View style={styles.coverWrap}>
-          {isEditor ? (
+          {!isEditor ? (
             // View Mode (just show image)
             <Image
               source={{ uri: track.largest_thumbnail }}
@@ -295,24 +300,88 @@ export default function PlayerPage() {
             />
           ) : (
             // Edit Mode (image + change button)
-            <View style={{ alignItems: "center" }}>
+            <View style={{ alignItems: "center", position: "relative" }}>
               <TouchableOpacity
                 style={styles.changeImageBtn}
                 onPress={pickImage} // function that opens picker
               >
-                <Text style={{ color: "white" }}>Change Image</Text>
+                <Text
+                  style={{
+                    color: theme.text,
+                    position: "absolute",
+                    zIndex: 100,
+                    inset: 1,
+                    textAlign: "center",
+                    display: "grid",
+                    placeContent: "center",
+                    backgroundColor: HEXA(theme.backgroundSecondary, 0.4),
+                    fontWeight: "bold",
+                  }}
+                >
+                  Select Image
+                </Text>
                 <Image
                   source={{
-                    uri: edits?.metadata?.thumbnail || track.largest_thumbnail,
+                    uri: edits?.metadata
+                      ?.thumbnail /* || track?.largest_thumbnail */,
                   }}
-                  style={[styles.coverImage, styles.coverWrap]}
+                  style={[
+                    styles.coverImage,
+                    styles.coverWrap,
+                    {
+                      border: "1px solid",
+                      borderColor: theme.accent,
+                      marginTop: 0,
+                    },
+                  ]}
                 />
+                <TouchableOpacity
+                  style={[
+                    {
+                      postion: "absolute",
+                      top: "-85%",
+                      right: "-85%",
+                      backgroundColor: HEXA(theme.textSecondary, 0.4),
+
+                      width: 30,
+                      height: 30,
+                      zIndex: 200,
+                      padding: 10,
+                      borderRadius: 100,
+
+                      display: "grid",
+                      placeContent: "center",
+                    },
+                  ]}
+                  onPress={() => {
+                    setEdits((prev) => {
+                      const edit = {
+                        ...prev,
+                        metadata: {
+                          ...prev.metadata,
+                          thumbnail: null,
+                        },
+                      };
+                      saveEdits(edit);
+                      return edit;
+                    });
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: theme.text,
+                      fontWeight: "bold",
+                    }}
+                  >
+                    ✕
+                  </Text>
+                </TouchableOpacity>
               </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {isEditor ? (
+        {!isEditor ? (
           <Text style={[styles.title, { color: "white" }]} numberOfLines={2}>
             {he.decode(track.title || "Unknown")}
           </Text>
@@ -320,10 +389,15 @@ export default function PlayerPage() {
           <TextInput
             value={edits?.metadata?.title}
             onChangeText={(text) =>
-              setEdits((prev) => ({
-                ...prev,
-                metadata: { ...prev.metadata, title: text },
-              }))
+              setEdits((prev) => {
+                const edit = {
+                  ...prev,
+                  metadata: { ...prev.metadata, title: text },
+                };
+
+                saveEdits(edit);
+                return edit;
+              })
             }
             style={[
               styles.editTitle,
@@ -335,7 +409,7 @@ export default function PlayerPage() {
             placeholderTextColor={theme.textSecondary}
           />
         )}
-        {isEditor ? (
+        {!isEditor ? (
           <Text
             style={[
               styles.uploader,
@@ -348,10 +422,14 @@ export default function PlayerPage() {
           <TextInput
             value={edits?.metadata?.artist}
             onChangeText={(text) =>
-              setEdits((prev) => ({
-                ...prev,
-                metadata: { ...prev.metadata, artist: text },
-              }))
+              setEdits((prev) => {
+                const edit = {
+                  ...prev,
+                  metadata: { ...prev.metadata, artist: text },
+                };
+                saveEdits(edit);
+                return edit;
+              })
             }
             style={[
               styles.editUploader,
@@ -440,20 +518,119 @@ export default function PlayerPage() {
             ]}
           >
             {formatTime(
-              Math.round(isNaN(trackDuration) ? 0 : pctFromCtx * trackDuration)
+              isEditor
+                ? edits?.trim?.start_time || loopStart
+                : Math.round(
+                    isNaN(trackDuration) ? 0 : pctFromCtx * trackDuration
+                  )
             )}
           </Text>
-          <View style={[{ width: "85%" }]}>
-            <SeekBar
-              progressPct={pctFromCtx}
-              duration={trackDuration}
-              onSeek={(sec) => seek?.(sec)}
-              accent={theme.accent}
-              background={HEXA(
-                themeMode === "dark" ? theme.textSecondary : "#fff",
-                0.12
-              )}
-            />
+          <View
+            style={[
+              {
+                width: "100%",
+                // border: "2px solid red",
+                flex: 1,
+                paddingHorizontal: 20,
+              },
+            ]}
+          >
+            {isEditor ? (
+              <View
+                onLayout={(e) => {
+                  // measure client width of the container
+                  const w = e.nativeEvent.layout.width;
+                  // deduct horizontal padding you applied to container (if any)
+                  // and optionally subtract thumb size so the thumbs don't overflow
+                  const thumbSize = 16; // match your markerStyle width/height
+                  const paddingHoriz = 0; // if you have container padding, subtract here
+                  const effective = Math.max(
+                    0,
+                    Math.floor(w - paddingHoriz - thumbSize)
+                  );
+                  setMultiSliderWidth(effective);
+                }}
+                style={{
+                  width: "100%",
+                  // keep same styling you used before:
+                  // border: "2px solid red",
+                  flex: 1,
+                  paddingHorizontal: 0,
+                }}
+              >
+                {/* only render slider once we know a width */}
+                {multiSliderWidth > 0 && (
+                  <MultiSlider
+                    values={[
+                      edits?.trim?.start_time || loopStart,
+                      edits?.trim?.end_time || loopEnd,
+                    ]}
+                    min={0}
+                    max={track?.duration ?? 0}
+                    step={1}
+                    onValuesChange={(values) => {
+                      setLoopStart(values[0]);
+                      setLoopEnd(values[1]);
+
+                      setEdits((prev) => {
+                        const edit = {
+                          ...prev,
+                          trim: {
+                            start_time: values[0],
+                            end_time: values[1],
+                          },
+                          metadata: {
+                            ...prev.metadata,
+                          },
+                        };
+                        saveEdits(edit);
+                        return edit;
+                      });
+                    }}
+                    // IMPORTANT: sliderLength is the px width to draw the track
+                    sliderLength={multiSliderWidth}
+                    // styling: do NOT set width: "100%" here — irrelevant
+                    selectedStyle={{
+                      backgroundColor: theme.accent,
+                      height: 5,
+                    }}
+                    unselectedStyle={{
+                      backgroundColor: HEXA(
+                        themeMode === "dark" ? theme.textSecondary : "#fff",
+                        0.12
+                      ),
+                      height: 5,
+                    }}
+                    trackStyle={{
+                      height: 5,
+                      borderRadius: 10,
+                      marginTop: -2.5,
+                    }}
+                    markerStyle={{
+                      backgroundColor: theme.accent,
+                      borderColor: theme.accent,
+                      width: 16,
+                      height: 16,
+                      borderRadius: 16,
+                    }}
+                    allowOverlap={false}
+                    snapped={false}
+                    minMarkerOverlapDistance={16}
+                  />
+                )}
+              </View>
+            ) : (
+              <SeekBar
+                progressPct={pctFromCtx}
+                duration={trackDuration}
+                onSeek={(sec) => seek?.(sec)}
+                accent={theme.accent}
+                background={HEXA(
+                  themeMode === "dark" ? theme.textSecondary : "#fff",
+                  0.12
+                )}
+              />
+            )}
           </View>
 
           <Text
@@ -462,7 +639,11 @@ export default function PlayerPage() {
               { color: themeMode === "dark" ? theme.textSecondary : "white" },
             ]}
           >
-            {formatTime(Math.round(trackDuration))}
+            {formatTime(
+              isEditor
+                ? edits?.trim?.end_time || loopEnd || trackDuration
+                : Math.round(trackDuration)
+            )}
           </Text>
         </View>
 
@@ -490,13 +671,26 @@ export default function PlayerPage() {
                 );
                 prev();
               }}
+              style={{
+                opacity: isEditor ? 0.5 : 1,
+                cursor: isEditor ? "not-allowed" : "pointer",
+              }}
+              disabled={isEditor}
             >
               <PreviousIcon color={theme.accent} />
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={playPause}
-              style={[styles.playBtn, { backgroundColor: theme.accent }]}
+              style={[
+                styles.playBtn,
+                {
+                  backgroundColor: theme.accent,
+                  opacity: isEditor ? 0.5 : 1,
+                  cursor: isEditor ? "not-allowed" : "pointer",
+                },
+              ]}
+              disabled={isEditor}
             >
               {isPlaying ? (
                 <PauseIcon color="#fff" size={30} />
@@ -514,6 +708,11 @@ export default function PlayerPage() {
                 );
                 next();
               }}
+              style={{
+                opacity: isEditor ? 0.5 : 1,
+                cursor: isEditor ? "not-allowed" : "pointer",
+              }}
+              disabled={isEditor}
             >
               <NextIcon color={theme.accent} />
             </TouchableOpacity>
