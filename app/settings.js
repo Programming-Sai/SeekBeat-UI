@@ -12,6 +12,7 @@ import ColorPicker from "../components/ColorPicker";
 import Switch from "../components/Switch";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import TabbedSwitch from "../components/TabbedSwitch";
+import Toast from "react-native-toast-message";
 
 export default function Settings() {
   const { setRightSidebarKey } = useRightSidebar();
@@ -31,8 +32,29 @@ export default function Settings() {
 
   const handleClear = () => {
     if (confirm("Permanently delete all search history?")) {
-      clearSearchHistory();
-      // optionally show toast/snackbar
+      try {
+        clearSearchHistory();
+        // optionally show toast/snackbar
+        Toast.show({
+          type: "success",
+          position: "top",
+          text1: "Success",
+          text2: "History Cleared",
+          text2Style: { fontSize: 16 },
+          visibilityTime: 4000,
+          autoHide: true,
+        });
+      } catch (e) {
+        Toast.show({
+          type: "error",
+          position: "top",
+          text1: "Error",
+          text2: String(e),
+          text2Style: { fontSize: 16 },
+          visibilityTime: 4000,
+          autoHide: true,
+        });
+      }
     }
   };
   useEffect(() => {

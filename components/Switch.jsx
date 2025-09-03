@@ -25,7 +25,7 @@ export default function Switch({
         style={[
           styles.thumb,
           {
-            backgroundColor: value
+            backgroundColor: !value
               ? accentDark
               : theme === "dark"
               ? accentLight
