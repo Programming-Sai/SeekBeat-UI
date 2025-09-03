@@ -116,6 +116,8 @@ export default function PlayerPage() {
     isEditor,
     setIsEditor,
     setIsPlaying,
+    setVolumeValue,
+    setPlaybackRate,
   } = player;
 
   // sync URL -> player context once (use URL as source of truth)
@@ -547,6 +549,7 @@ export default function PlayerPage() {
                 {
                   label: "0.25x",
                   onPress: () => {
+                    setPlaybackRate(0.25);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -563,6 +566,7 @@ export default function PlayerPage() {
                 {
                   label: "0.5x",
                   onPress: () => {
+                    setPlaybackRate(0.5);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -579,6 +583,7 @@ export default function PlayerPage() {
                 {
                   label: "0.75x",
                   onPress: () => {
+                    setPlaybackRate(0.75);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -595,6 +600,7 @@ export default function PlayerPage() {
                 {
                   label: "1x",
                   onPress: () => {
+                    setPlaybackRate(1);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -611,6 +617,7 @@ export default function PlayerPage() {
                 {
                   label: "1.25x",
                   onPress: () => {
+                    setPlaybackRate(1.25);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -627,6 +634,7 @@ export default function PlayerPage() {
                 {
                   label: "1.5x",
                   onPress: () => {
+                    setPlaybackRate(1.5);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -643,6 +651,7 @@ export default function PlayerPage() {
                 {
                   label: "1.75x",
                   onPress: () => {
+                    setPlaybackRate(1.75);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -659,6 +668,7 @@ export default function PlayerPage() {
                 {
                   label: "2x",
                   onPress: () => {
+                    setPlaybackRate(2);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -707,6 +717,7 @@ export default function PlayerPage() {
                 {
                   label: `${displayPercentage(0)}%`,
                   onPress: () => {
+                    setVolumeValue(0 / 5);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -722,6 +733,7 @@ export default function PlayerPage() {
                 {
                   label: `${displayPercentage(1.25)}%`,
                   onPress: () => {
+                    setVolumeValue(1.25 / 5);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -737,6 +749,7 @@ export default function PlayerPage() {
                 {
                   label: `${displayPercentage(2.5)}%`,
                   onPress: () => {
+                    setVolumeValue(2.5 / 5);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -752,6 +765,7 @@ export default function PlayerPage() {
                 {
                   label: `${displayPercentage(3.75)}%`,
                   onPress: () => {
+                    setVolumeValue(3.75 / 5);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {
@@ -767,6 +781,7 @@ export default function PlayerPage() {
                 {
                   label: `${displayPercentage(5)}%`,
                   onPress: () => {
+                    setVolumeValue(5 / 5);
                     if (isEditor) {
                       setEdits((prev) => {
                         const edit = {

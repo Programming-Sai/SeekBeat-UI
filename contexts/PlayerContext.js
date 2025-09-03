@@ -512,7 +512,7 @@ export function PlayerProvider({
           audio.play().catch(() => {});
           setIsPlaying(true);
         } else {
-          nextTrack(true);
+          nextTrack(!miniVisible);
         }
       };
 
@@ -661,15 +661,43 @@ export function PlayerProvider({
 
   // set volume/ playbackRate helpers (also update existing audioRef if present)
   const setVolumeValue = useCallback((val0to1) => {
+    // clamp permitted range 0..1 for playback
     const v = Math.max(0, Math.min(1, Number(val0to1) || 0));
     setVolumeValueState(v);
-    if (audioRef.current) audioRef.current.volume = v;
+
+    const a = audioRef.current;
+    if (!a) return;
+
+    try {
+      const wasPaused = a.paused;
+      a.volume = v;
+      // some browsers may briefly pause — if our state says we should be playing,
+      // try to resume quickly.
+      if (!wasPaused && a.paused) {
+        a.play().catch(() => {});
+      }
+    } catch (err) {
+      console.warn("Failed to set audio.volume:", err);
+    }
   }, []);
 
   const setPlaybackRate = useCallback((rate) => {
     const r = Number(rate) || 1;
     setPlaybackRateState(r);
-    if (audioRef.current) audioRef.current.playbackRate = r;
+
+    const a = audioRef.current;
+    if (!a) return;
+
+    try {
+      const wasPaused = a.paused;
+      a.playbackRate = r;
+      // some streams or formats could trigger a small pause — try to resume if needed
+      if (!wasPaused && a.paused) {
+        a.play().catch(() => {});
+      }
+    } catch (err) {
+      console.warn("Failed to set audio.playbackRate:", err);
+    }
   }, []);
 
   const api = {

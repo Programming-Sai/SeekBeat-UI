@@ -224,7 +224,10 @@ export default function MiniPlayer() {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={next} accessibilityLabel="Next">
+            <TouchableOpacity
+              onPress={() => next(false)}
+              accessibilityLabel="Next"
+            >
               <NextIcon color={theme.accent} />
             </TouchableOpacity>
           </View>
