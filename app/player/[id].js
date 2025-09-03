@@ -117,6 +117,8 @@ export default function PlayerPage() {
     setIsEditor,
     setIsPlaying,
     setVolumeValue,
+    loadingStream,
+    isBuffering,
     setPlaybackRate,
   } = player;
 
@@ -1029,6 +1031,7 @@ export default function PlayerPage() {
             <OpenIcon size={25} color={theme.text} />
           </Link>
         </View>
+        <Text>{(isBuffering || loadingStream) && "Loading"}</Text>
       </ScrollView>
     </ImageBackground>
   );
