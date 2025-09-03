@@ -1,5 +1,5 @@
 // contexts/PlayerContext.js
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React, {
   createContext,
   useCallback,
@@ -51,6 +51,15 @@ export function PlayerProvider({
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
   const router = useRouter();
+
+  const audioRef = useRef(null); // holds HTMLAudioElement
+  const loadIdRef = useRef(0); // incremental id to ignore stale responses
+  const inflightControllerRef = useRef(null); // AbortController for fetch
+
+  const [streamUrl, setStreamUrl] = useState(null);
+  const [loadingStream, setLoadingStream] = useState(false);
+  const [volumeValue, setVolumeValueState] = useState(1); // 0..1
+  const [playbackRate, setPlaybackRateState] = useState(1); // e.g. 1.25
 
   // helper: current track
   const currentTrack =
@@ -171,12 +180,22 @@ export function PlayerProvider({
   }, []);
 
   useEffect(() => {
-    if (isPlaying) startRaf();
-    else stopRaf();
-    return () => {
-      stopRaf();
-    };
-  }, [isPlaying, startRaf, stopRaf]);
+    // If we have a real audio element, let it update position/time; don't run RAF.
+    if (audioRef.current) {
+      // make sure RAF is stopped if present
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      return;
+    }
+
+    // if (isPlaying) startRaf();
+    // else stopRaf();
+    // return () => {
+    // stopRaf();
+    // };
+  }, [isPlaying, startRaf, stopRaf, audioRef.current]);
 
   /* --------- Controls --------- */
 
@@ -223,24 +242,11 @@ export function PlayerProvider({
     setIsPlaying(true);
   }, []);
 
-  const playPause = useCallback(() => setIsPlaying((s) => !s), []);
-  const play = useCallback(() => setIsPlaying(true), []);
-  const pause = useCallback(() => setIsPlaying(false), []);
-
   const prev = useCallback(() => {
     setPosition(0);
     setCurrentIndex((ci) => Math.max(0, ci - 1));
     setIsPlaying(true);
   }, []);
-
-  const seek = useCallback(
-    (toSec) => {
-      if (typeof toSec !== "number") return;
-      const clamped = Math.max(0, Math.min(toSec, duration || 0));
-      setPosition(clamped);
-    },
-    [duration]
-  );
 
   // allow external components (audio element) to set the position/duration
   const setPositionExternal = useCallback((sec) => setPosition(sec), []);
@@ -405,9 +411,15 @@ export function PlayerProvider({
       // If a streamBase is provided by app, construct stream URL like `${streamBase}?url=...`
       // You can override this logic when integrating the real backend.
       if (streamBase) {
-        return `${streamBase}?source=${encodeURIComponent(
-          song.webpage_url || song.url || ""
-        )}`;
+        console.log(
+          "GET STREAM URL: ",
+          `${streamBase}/api/stream/${encodeURIComponent(
+            song.id || song.webpage_url || ""
+          )}/`
+        );
+        return `${streamBase}/api/stream/${encodeURIComponent(
+          song.id || song.webpage_url || ""
+        )}/`;
       }
       return null;
     },
@@ -431,6 +443,233 @@ export function PlayerProvider({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
+  }, []);
+
+  const cleanupAudio = useCallback(() => {
+    // abort any inflight fetch
+    try {
+      inflightControllerRef.current?.abort();
+    } catch (e) {}
+
+    const a = audioRef.current;
+    if (!a) return;
+    try {
+      a.pause();
+    } catch (e) {}
+    // remove listeners
+    a.onloadedmetadata = null;
+    a.ontimeupdate = null;
+    a.onended = null;
+    a.onplay = null;
+    a.onpause = null;
+    a.onerror = null;
+    try {
+      a.src = "";
+    } catch (e) {}
+    audioRef.current = null;
+    setStreamUrl(null);
+    setIsPlaying(false);
+  }, []);
+
+  const isSameOrigin = (url) => {
+    try {
+      const u = new URL(url, window.location.href);
+      return u.origin === window.location.origin;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // function to create and attach audio
+  const createAndAttachAudio = useCallback(
+    (src, { autoplay = true } = {}) => {
+      // cleanup previous one
+      cleanupAudio();
+
+      if (!src) return null;
+
+      const audio = new Audio(src);
+      if (isSameOrigin(src)) {
+        audio.crossOrigin = "anonymous";
+      }
+      audio.preload = "auto";
+
+      // initialize audio settings
+      audio.volume = Math.max(0, Math.min(1, volumeValue));
+      audio.playbackRate = playbackRate;
+
+      // events
+      audio.onloadedmetadata = () => {
+        setDuration(isFinite(audio.duration) ? audio.duration : 0);
+      };
+      audio.ontimeupdate = () => {
+        setPosition(audio.currentTime);
+      };
+      audio.onended = () => {
+        if (repeatMode === "one") {
+          audio.currentTime = 0;
+          // play might reject; don't rely on it to set isPlaying
+          audio.play().catch(() => {});
+          setIsPlaying(true);
+        } else {
+          nextTrack(true);
+        }
+      };
+
+      audio.onplay = () => setIsPlaying(true);
+      audio.onpause = () => setIsPlaying(false);
+      audio.onerror = (ev) => {
+        console.warn("Audio error", ev);
+        setIsPlaying(false);
+      };
+
+      audioRef.current = audio;
+      setStreamUrl(src);
+
+      if (autoplay) {
+        // play returns a promise (may be blocked by browser autoplay policies)
+        audio
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch((err) => {
+            console.warn("Audio play() failed:", err);
+            setIsPlaying(false);
+          });
+      } else {
+        setIsPlaying(false);
+      }
+
+      return audio;
+    },
+    [cleanupAudio, nextTrack, repeatMode, playbackRate, volumeValue]
+  );
+
+  // function to fetch stream JSON from backend and load audio
+  const loadStreamForIndex = useCallback(
+    async (idx, { autoplay = true } = {}) => {
+      if (!Array.isArray(queue) || idx < 0 || idx >= queue.length) return null;
+      const song = queue[idx];
+      const endpoint = getStreamUrl(song);
+      if (!endpoint) {
+        console.warn("no stream endpoint for song", song);
+        return null;
+      }
+
+      // increment load id and abort prior fetch
+      const myId = ++loadIdRef.current;
+      try {
+        inflightControllerRef.current?.abort();
+      } catch (e) {}
+      const controller = new AbortController();
+      inflightControllerRef.current = controller;
+
+      setLoadingStream(true);
+      try {
+        const res = await fetch(endpoint, { signal: controller.signal });
+        // if another load started, bail out
+        if (myId !== loadIdRef.current) {
+          setLoadingStream(false);
+          return null;
+        }
+        if (!res.ok) throw new Error("stream endpoint failed: " + res.status);
+        const data = await res.json();
+        const src = data?.stream_url ?? data?.streamUrl ?? null;
+        if (!src) throw new Error("no stream_url in backend response");
+
+        // attach audio and play if requested
+        const audio = createAndAttachAudio(src, { autoplay });
+
+        setLoadingStream(false);
+        inflightControllerRef.current = null;
+        return audio;
+      } catch (err) {
+        if (err?.name === "AbortError") {
+          // expected when we abort previous request
+          // console.debug("stream fetch aborted");
+        } else {
+          console.error("Error resolving stream:", err);
+        }
+        setLoadingStream(false);
+        inflightControllerRef.current = null;
+        return null;
+      }
+    },
+    [queue, getStreamUrl, createAndAttachAudio]
+  );
+
+  // whenever currentIndex changes, load its stream
+  useEffect(() => {
+    if (currentIndex < 0) return;
+    // load and autoplay when user changes currentIndex via UI
+    // when autoplay is false you can call loadStreamForIndex(currentIndex, {autoplay:false})
+    loadStreamForIndex(currentIndex, { autoplay: true });
+    // clean up the audio when track changes or component unmounts
+    return () => {
+      // optional: do not immediately cleanup if you want gapless behavior
+      cleanupAudio();
+    };
+  }, [currentIndex, loadStreamForIndex, cleanupAudio]);
+
+  // Play / Pause wrappers to control audio instance
+  const play = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) {
+      // if no audio, try to load currentIndex stream and play
+      if (currentIndex >= 0)
+        loadStreamForIndex(currentIndex, { autoplay: true });
+      return;
+    }
+    a.play()
+      .then(() => setIsPlaying(true))
+      .catch(() => setIsPlaying(false));
+  }, [currentIndex, loadStreamForIndex]);
+
+  const pause = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    try {
+      a.pause();
+    } catch (e) {}
+    setIsPlaying(false);
+  }, []);
+
+  // override the old playPause
+  const playPause = useCallback(() => {
+    if (isPlaying) pause();
+    else play();
+  }, [isPlaying, pause, play]);
+
+  // seek: if audio exists, update currentTime immediately
+  const seek = useCallback(
+    (toSec) => {
+      const a = audioRef.current;
+      if (a) {
+        const clamped = Math.max(
+          0,
+          Math.min(toSec, a.duration || duration || 0)
+        );
+        a.currentTime = clamped;
+        setPosition(clamped);
+      } else {
+        // fallback to your previous setPosition state (simulated RAF)
+        const clamped = Math.max(0, Math.min(toSec, duration || 0));
+        setPosition(clamped);
+      }
+    },
+    [duration]
+  );
+
+  // set volume/ playbackRate helpers (also update existing audioRef if present)
+  const setVolumeValue = useCallback((val0to1) => {
+    const v = Math.max(0, Math.min(1, Number(val0to1) || 0));
+    setVolumeValueState(v);
+    if (audioRef.current) audioRef.current.volume = v;
+  }, []);
+
+  const setPlaybackRate = useCallback((rate) => {
+    const r = Number(rate) || 1;
+    setPlaybackRateState(r);
+    if (audioRef.current) audioRef.current.playbackRate = r;
   }, []);
 
   const api = {
@@ -481,6 +720,13 @@ export function PlayerProvider({
 
     isEditor,
     setIsEditor,
+
+    // audio-specific
+    streamUrl,
+    loadingStream,
+    setVolumeValue,
+    setPlaybackRate,
+    loadStreamForIndex,
   };
 
   return (

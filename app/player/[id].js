@@ -10,7 +10,7 @@ import {
   ScrollView,
   TextInput,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useRightSidebar } from "../../contexts/SidebarContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useSearch } from "../../contexts/SearchContext";
@@ -37,6 +37,7 @@ import { MoreIcon } from "../../components/MoreIcon";
 import { useSearchParams } from "expo-router/build/hooks";
 import * as ImagePicker from "expo-image-picker";
 import MultiSlider from "@ptomasroos/react-native-multi-slider";
+import { OpenIcon } from "../../components/OpenIcon";
 
 /**
  * Full Player Page (fixed hook ordering)
@@ -997,7 +998,21 @@ export default function PlayerPage() {
               <NextIcon color={theme.accent} />
             </TouchableOpacity>
           </View>
-          <MoreIcon size={25} color={theme.text} />
+          <Link
+            style={[
+              styles.queueControls,
+              {
+                padding: 10,
+                backgroundColor: HEXA(theme.textSecondary, 0.4),
+                borderRadius: 100,
+              },
+            ]}
+            href={track?.webpage_url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <OpenIcon size={25} color={theme.text} />
+          </Link>
         </View>
       </ScrollView>
     </ImageBackground>

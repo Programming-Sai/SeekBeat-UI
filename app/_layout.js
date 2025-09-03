@@ -14,11 +14,13 @@ import { MenuProvider } from "react-native-popup-menu";
 import MiniPlayer from "../components/MiniPlayer";
 import { PlayerProvider } from "../contexts/PlayerContext";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+
 export default function Layout() {
   return (
     <ThemeProvider>
       <AppStorageProvider>
-        <PlayerProvider>
+        <PlayerProvider streamBase={API_BASE}>
           <MenuProvider>
             <SidebarProvider>
               <SearchProvider>
