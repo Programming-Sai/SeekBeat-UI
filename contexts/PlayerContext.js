@@ -1,4 +1,5 @@
 // contexts/PlayerContext.js
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, {
   createContext,
   useCallback,
@@ -44,10 +45,12 @@ export function PlayerProvider({
   // position/duration are in seconds (UI expects numeric seconds)
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isEditor, setIsEditor] = useState(false);
 
   // raf simulation refs
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
+  const router = useRouter();
 
   // helper: current track
   const currentTrack =
@@ -83,7 +86,52 @@ export function PlayerProvider({
     }
   }, [currentTrack]);
 
-  // RAF tick to simulate playback time (only UI-level)
+  const nextTrack = useCallback(
+    (shouldNavigate = false) => {
+      setPosition(0);
+      setCurrentIndex((ci) => {
+        if (shuffle && queue.length > 1) {
+          let nextIdx;
+          do {
+            nextIdx = Math.floor(Math.random() * queue.length);
+          } while (nextIdx === ci);
+
+          if (shouldNavigate) {
+            router.push(
+              `/player/${queue[nextIdx]?.id}${isEditor ? "?edit=true" : ""}`
+            );
+          }
+
+          return nextIdx;
+        }
+
+        if (ci + 1 >= queue.length) {
+          if (repeatMode === "all") {
+            if (shouldNavigate) {
+              router.push(
+                `/player/${queue[0]?.id}${isEditor ? "?edit=true" : ""}`
+              );
+            }
+            return 0;
+          } else {
+            setIsPlaying(false);
+            return ci; // stop at end
+          }
+        }
+
+        if (shouldNavigate) {
+          router.push(
+            `/player/${queue[ci + 1]?.id}${isEditor ? "?edit=true" : ""}`
+          );
+        }
+
+        return ci + 1;
+      });
+    },
+    [queue, shuffle, repeatMode, router, isEditor]
+  );
+
+  // then update startRaf to use nextTrack (and proper deps)
   const startRaf = useCallback(() => {
     if (rafRef.current) return;
     lastTimeRef.current = performance.now();
@@ -93,26 +141,26 @@ export function PlayerProvider({
       lastTimeRef.current = now;
 
       setPosition((p) => {
-        const next = p + dt;
-        if (duration && next >= duration) {
+        const nextPos = p + dt;
+        if (duration && nextPos >= duration) {
           setTimeout(() => {
             if (repeatMode === "one") {
               // restart same track
               setPosition(0);
             } else {
-              next(); // call the function we defined above
+              nextTrack(true); // call the function (no shadowing now)
             }
           }, 0);
           return duration;
         }
-        return next;
+        return nextPos;
       });
 
       rafRef.current = requestAnimationFrame(tick);
     };
 
     rafRef.current = requestAnimationFrame(tick);
-  }, [duration, currentIndex, queue.length]);
+  }, [duration, currentIndex, queue.length, nextTrack, repeatMode]);
 
   const stopRaf = useCallback(() => {
     if (rafRef.current) {
@@ -178,31 +226,6 @@ export function PlayerProvider({
   const playPause = useCallback(() => setIsPlaying((s) => !s), []);
   const play = useCallback(() => setIsPlaying(true), []);
   const pause = useCallback(() => setIsPlaying(false), []);
-
-  const next = useCallback(() => {
-    setPosition(0);
-    setCurrentIndex((ci) => {
-      if (shuffle && queue.length > 1) {
-        // pick a random track that isn't the current one
-        let nextIdx;
-        do {
-          nextIdx = Math.floor(Math.random() * queue.length);
-        } while (nextIdx === ci);
-        return nextIdx;
-      }
-
-      if (ci + 1 >= queue.length) {
-        if (repeatMode === "all") {
-          return 0; // loop back
-        } else {
-          setIsPlaying(false);
-          return ci; // stop at end
-        }
-      }
-
-      return ci + 1;
-    });
-  }, [queue.length, shuffle, repeatMode]);
 
   const prev = useCallback(() => {
     setPosition(0);
@@ -417,6 +440,7 @@ export function PlayerProvider({
     currentTrack,
     setCurrentIndex,
     isPlaying,
+    setIsPlaying,
     position,
     duration,
 
@@ -426,7 +450,7 @@ export function PlayerProvider({
     playPause,
     play,
     pause,
-    next,
+    next: nextTrack,
     prev,
     seek,
 
@@ -454,6 +478,9 @@ export function PlayerProvider({
     repeatMode,
     toggleShuffle,
     cycleRepeatMode,
+
+    isEditor,
+    setIsEditor,
   };
 
   return (

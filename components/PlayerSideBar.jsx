@@ -1,14 +1,6 @@
-// PlayerSideBar.js (improved for scrolling + robust auto-scroll)
+// PlayerSideBar.js
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  Image,
-  TouchableOpacity,
-  Platform,
-  ScrollView,
-} from "react-native";
+import { StyleSheet, Text, View, Image, TouchableOpacity } from "react-native";
 import DraggableFlatList, {
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
@@ -20,7 +12,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import { HEXA } from "../lib/colors";
 
-const ITEM_HEIGHT = 70; // must match visual row height
+const ITEM_HEIGHT = 70;
 
 export const PlayerSideBar = ({ edit }) => {
   const { theme } = useTheme();
@@ -38,10 +30,8 @@ export const PlayerSideBar = ({ edit }) => {
   const mountedRef = useRef(false);
   const layoutReadyRef = useRef(false);
   const { id } = useLocalSearchParams();
-  const isEditor = edit;
-  const [currentId, setCurrentId] = useState(id);
+  const isEditor = !!edit;
 
-  // Keep localData in sync with queue (but don't stomp if user is actively dragging)
   useEffect(() => {
     if (!mountedRef.current) {
       mountedRef.current = true;
@@ -64,7 +54,6 @@ export const PlayerSideBar = ({ edit }) => {
     });
   }, [queue]);
 
-  // seed from last search (only if empty)
   useEffect(() => {
     const last = getLastSearch?.();
     if ((!queue || queue.length === 0) && last?.items) {
@@ -73,59 +62,42 @@ export const PlayerSideBar = ({ edit }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Called when layout is ready (list container measured)
   const onContainerLayout = useCallback(() => {
     layoutReadyRef.current = true;
   }, []);
 
-  // Robust scroll helper: prefers scrollToIndex, falls back to scrollToOffset
   const scrollToIndexSafe = useCallback((index) => {
     if (!listRef.current || typeof index !== "number" || index < 0) return;
     const fnIndex = listRef.current?.scrollToIndex;
     const fnOffset = listRef.current?.scrollToOffset;
-
-    // If getItemLayout is provided, we can compute offset deterministically
     const offset = index * ITEM_HEIGHT;
-
     try {
       if (typeof fnIndex === "function") {
         fnIndex.call(listRef.current, { index, animated: true });
         return;
       }
-    } catch (err) {
-      // fallthrough to offset
-    }
-
+    } catch (err) {}
     try {
       if (typeof fnOffset === "function") {
         fnOffset.call(listRef.current, { offset, animated: true });
         return;
       }
     } catch (err) {
-      // final fallback: try to access internal scroll responder
       try {
         const inner = listRef.current?.getNode
           ? listRef.current.getNode()
           : listRef.current;
         inner?.scrollToOffset?.({ offset, animated: true });
       } catch (e) {
-        // give up silently
         console.warn("scroll fallback failed", e);
       }
     }
   }, []);
 
-  // Auto-scroll to currentIndex when it changes — wait for layoutReady first
   useEffect(() => {
     if (typeof currentIndex !== "number" || currentIndex < 0) return;
-
-    // If layout isn't ready, wait a bit longer
     const delay = layoutReadyRef.current ? 50 : 250;
-
-    const t = setTimeout(() => {
-      scrollToIndexSafe(currentIndex);
-    }, delay);
-
+    const t = setTimeout(() => scrollToIndexSafe(currentIndex), delay);
     return () => clearTimeout(t);
   }, [currentIndex, scrollToIndexSafe]);
 
@@ -133,16 +105,20 @@ export const PlayerSideBar = ({ edit }) => {
     return item?.webpage_url ?? item?.id?.toString() ?? `${index}`;
   }, []);
 
+  // derive canonical selected id (prefer currentIndex if available)
+  const selectedId =
+    (typeof currentIndex === "number" && queue[currentIndex]?.id) || id;
+
   const renderItem = useCallback(
     ({ item, drag, isActive, index }) => {
       const isPlaying = index === currentIndex;
-      const isSelected = String(currentId) === String(item?.id);
+      const isSelected = String(selectedId) === String(item?.id);
+
       return (
         <ScaleDecorator>
           <TouchableOpacity
             onPress={() => {
               playIndex(index);
-              setCurrentId(item?.id);
               router.push?.(
                 `/player/${item?.id ?? index}${isEditor ? "?edit=true" : ""}`
               );
@@ -191,7 +167,8 @@ export const PlayerSideBar = ({ edit }) => {
         </ScaleDecorator>
       );
     },
-    [currentId, currentIndex, playIndex, router, theme]
+    // include selectedId/currentIndex/id so renderItem gets recreated when they change
+    [selectedId, currentIndex, playIndex, router, theme, isEditor]
   );
 
   if (!Array.isArray(localData) || localData.length === 0) {
@@ -207,15 +184,13 @@ export const PlayerSideBar = ({ edit }) => {
 
   return (
     <View
-      // <View
       onLayout={onContainerLayout}
-      // style={[styles.container, { backgroundColor: "red" }]}
       style={[styles.container, { backgroundColor: theme.backgroundSecondary }]}
     >
       <DraggableFlatList
         ref={listRef}
         data={localData}
-        extraData={id}
+        extraData={[id, currentIndex, isEditor]}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         onDragEnd={({ data }) => {
@@ -230,12 +205,11 @@ export const PlayerSideBar = ({ edit }) => {
         activationDistance={10}
         containerStyle={{ paddingBottom: 40 }}
         contentContainerStyle={{ paddingBottom: 40 }}
-        style={{ height: "90vh", paddingBottom: 100 }} // important: minHeight:0 helps RN-web flex
-        // Helpful performance props:
+        style={{ height: "90vh", paddingBottom: 100 }}
         initialNumToRender={12}
         windowSize={5}
-        autoscrollSpeed={50} // try increasing this
-        autoscrollThreshold={50} // smaller threshold triggers earlier
+        autoscrollSpeed={50}
+        autoscrollThreshold={50}
         scrollEnabled
         showsVerticalScrollIndicator={false}
       />
@@ -244,7 +218,7 @@ export const PlayerSideBar = ({ edit }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 12, height: "90vh" }, // minHeight:0 important on web
+  container: { padding: 12, height: "90vh" },
   item: {
     height: ITEM_HEIGHT - 6,
     flexDirection: "row",

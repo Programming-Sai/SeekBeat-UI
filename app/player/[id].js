@@ -47,9 +47,25 @@ export default function PlayerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // const params = new URLSearchParams(searchParams);
-  const [isEditor, setIsEditor] = useState(edit === "true");
 
-  const [queueCommandIndex, setQueueCommandIndex] = useState(0);
+  const loadQueueCommandIndex = () => {
+    const stored = localStorage.getItem("@seekbeat:queueCommandIndex");
+    return stored ? JSON.parse(stored) : null;
+  };
+
+  const saveQueueCommandIndex = (index) => {
+    localStorage.setItem("@seekbeat:queueCommandIndex", JSON.stringify(index));
+  };
+
+  let potentialCommandIndex = loadQueueCommandIndex();
+  if (potentialCommandIndex === null) {
+    saveQueueCommandIndex(0);
+    potentialCommandIndex = loadQueueCommandIndex();
+  }
+
+  const [queueCommandIndex, setQueueCommandIndex] = useState(
+    potentialCommandIndex
+  );
 
   // call all hooks unconditionally (important!)
   const rightSidebarCtx = useRightSidebar();
@@ -96,7 +112,22 @@ export default function PlayerPage() {
     setShuffle,
     setRepeatMode,
     repeatMode,
+    isEditor,
+    setIsEditor,
+    setIsPlaying,
   } = player;
+
+  // sync URL -> player context once (use URL as source of truth)
+  useEffect(() => {
+    // compute new value from URL param
+    const newIsEditor = edit === "true";
+
+    // update player context once, based on URL
+    setIsEditor(newIsEditor);
+
+    // if entering editor mode, pause; if leaving, resume (or your desired behaviour)
+    setIsPlaying(!newIsEditor);
+  }, [edit, setIsEditor, setIsPlaying]);
 
   const queueCommands = [
     {
@@ -114,6 +145,7 @@ export default function PlayerPage() {
       },
       func: () => {
         setShuffle(true);
+        setRepeatMode("none");
       },
     },
     {
@@ -135,6 +167,14 @@ export default function PlayerPage() {
       },
     },
   ];
+
+  // apply persisted queue command behaviour on mount / when index changes
+  useEffect(() => {
+    // only apply if the function exists
+    const fn = queueCommands[queueCommandIndex]?.func;
+    if (typeof fn === "function") fn();
+    // run when queueCommandIndex changes (and when setShuffle/setRepeatMode become available)
+  }, [queueCommandIndex, queueCommands]);
 
   // console.log("Is editor:", isEditor);
 
@@ -202,8 +242,10 @@ export default function PlayerPage() {
   };
 
   const onChangeQueueCommand = () => {
-    setQueueCommandIndex((prev) => (prev + 1) % queueCommands.length);
-    queueCommands[queueCommandIndex]?.func();
+    const newIndex = (queueCommandIndex + 1) % queueCommands.length;
+    saveQueueCommandIndex(newIndex);
+    setQueueCommandIndex(newIndex);
+    queueCommands[newIndex]?.func?.();
   };
 
   const handleEdit = () => {
@@ -225,6 +267,7 @@ export default function PlayerPage() {
     const stored = localStorage.getItem("@seekbeat:edits");
     return stored ? JSON.parse(stored) : null;
   };
+
   const potentialEdits = loadEdits();
 
   const [edits, setEdits] = useState(
@@ -273,6 +316,26 @@ export default function PlayerPage() {
 
   const clearEdits = () => {
     localStorage.removeItem("@seekbeat:edits");
+  };
+
+  const computeNextIndexForUI = () => {
+    if (!Array.isArray(queue) || queue.length === 0) return null;
+
+    if (shuffle && queue.length > 1) {
+      // choose a random different index
+      let nextIdx;
+      do {
+        nextIdx = Math.floor(Math.random() * queue.length);
+      } while (nextIdx === currentIndex);
+      return nextIdx;
+    }
+
+    // normal forward
+    if (currentIndex + 1 >= queue.length) {
+      if (repeatMode === "all") return 0;
+      return null; // no next
+    }
+    return currentIndex + 1;
   };
 
   // now safe early return: we've already called hooks above
@@ -874,11 +937,13 @@ export default function PlayerPage() {
           <View style={[styles.controls, { width: "auto", marginTop: 0 }]}>
             <TouchableOpacity
               onPress={() => {
-                router.push(
-                  `/player/${queue[currentIndex - 1]?.id}${
-                    isEditor ? "?edit=true" : ""
-                  }`
-                );
+                if (currentIndex > 0) {
+                  router.push(
+                    `/player/${queue[currentIndex - 1]?.id}${
+                      isEditor ? "?edit=true" : ""
+                    }`
+                  );
+                }
                 prev();
               }}
               style={{
@@ -911,18 +976,23 @@ export default function PlayerPage() {
 
             <TouchableOpacity
               onPress={() => {
+                const nextIdx = computeNextIndexForUI();
+                if (nextIdx === null) return;
                 router.push(
                   `/player/${queue[currentIndex + 1]?.id}${
                     isEditor ? "?edit=true" : ""
                   }`
                 );
-                next();
+                next(false);
               }}
               style={{
-                opacity: isEditor ? 0.5 : 1,
-                cursor: isEditor ? "not-allowed" : "pointer",
+                opacity: isEditor || computeNextIndexForUI() === null ? 0.5 : 1,
+                cursor:
+                  isEditor || computeNextIndexForUI() === null
+                    ? "not-allowed"
+                    : "pointer",
               }}
-              disabled={isEditor}
+              disabled={isEditor || computeNextIndexForUI() === null}
             >
               <NextIcon color={theme.accent} />
             </TouchableOpacity>
