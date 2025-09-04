@@ -1,5 +1,5 @@
 // app/player/[id].js
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -39,6 +39,8 @@ import { useSearchParams } from "expo-router/build/hooks";
 import * as ImagePicker from "expo-image-picker";
 import MultiSlider from "@ptomasroos/react-native-multi-slider";
 import { OpenIcon } from "../../components/OpenIcon";
+import Toast from "react-native-toast-message";
+import { useDownloader } from "../../contexts/DownloaderContext";
 
 /**
  * Full Player Page (fixed hook ordering)
@@ -91,7 +93,7 @@ export default function PlayerPage() {
     normalized: null,
     isLoading: false,
   };
-  const { getLastSearch } = appStorage ?? {};
+  const { getLastSearch, getDownloadStatus } = appStorage ?? {};
 
   // safe references to player methods (may be undefined until player exists)
 
@@ -345,6 +347,46 @@ export default function PlayerPage() {
     }
     return currentIndex + 1;
   };
+
+  const { download } = useDownloader();
+  const status = getDownloadStatus(track?.id);
+
+  const onDownload = useCallback(async () => {
+    if (!track) return;
+    const id = track?.id ?? track?.webpage_url;
+
+    // prevent duplicate clicks
+    if (status === "pending") return;
+
+    // optional immediate toast
+    Toast.show({
+      type: "info",
+      position: "top",
+      text1: "Preparing download",
+      text2: `${track.title} — preparing...`,
+      visibilityTime: 2000,
+      autoHide: true,
+    });
+
+    try {
+      const { filename } = await download(track, edits);
+      Toast.show({
+        type: "success",
+        position: "top",
+        text1: "Download complete",
+        text2: filename ?? track.title,
+        visibilityTime: 4000,
+      });
+    } catch (err) {
+      Toast.show({
+        type: "error",
+        position: "top",
+        text1: "Download failed",
+        text2: String(err),
+        visibilityTime: 4000,
+      });
+    }
+  }, [track, status, download]);
 
   // now safe early return: we've already called hooks above
   if (!player) {
@@ -721,8 +763,15 @@ export default function PlayerPage() {
               { backgroundColor: HEXA(theme.textSecondary, 0.4) },
             ]}
           >
-            <TouchableOpacity onPress={() => {}}>
-              <DownloadIcon size={25} color={theme.text} />
+            <TouchableOpacity
+              onPress={onDownload}
+              disabled={status === "pending"}
+            >
+              {status === "pending" ? (
+                <ActivityIndicator color={theme.background} />
+              ) : (
+                <DownloadIcon size={25} color={theme.text} />
+              )}
             </TouchableOpacity>
           </View>
           <View

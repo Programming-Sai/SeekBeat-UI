@@ -15,7 +15,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { getPrimaryTextColor, HEXA } from "../lib/colors";
 import { HistoryIcon } from "./HistoryIcon";
 import { MoreIcon } from "./MoreIcon";
-import { DownloasdIcon } from "./DownloadIcon";
+import { DownloadIcon } from "./DownloadIcon";
 import he from "he";
 import formatTime from "../lib/utils";
 import { useAppStorage } from "../contexts/AppStorageContext";
@@ -36,7 +36,9 @@ export const HomeSideBar = () => {
 
   const searchHistory = localHistory; // keep rest of code unchanged except using this array
 
+  // const downloads = [];
   const downloads = data?.downloads || [];
+  // console.log("DOWNLOADS: ", downloads);
   // const downloads = [
   //   {
   //     title:
@@ -174,12 +176,12 @@ export const HomeSideBar = () => {
   };
 
   const playDownload = (download) => {
-    console.log(`Playing: ${download.title}`);
+    console.log(`Playing: ${download?.song?.title}`);
     setOpenMenuIndex(null);
   };
 
   const deleteDownload = (download) => {
-    const confirmed = window.confirm(`Delete "${download.title}"?`);
+    const confirmed = window.confirm(`Delete "${download?.song?.title}"?`);
     if (confirmed) {
       removeDownload(download.webpage_url);
     }
@@ -300,7 +302,7 @@ export const HomeSideBar = () => {
               </Text>
             </View>
           )
-        ) : downloads && downloads.length > 0 ? (
+        ) : downloads && downloads?.length > 0 ? (
           downloads
             .sort((a, b) => b.when - a.when)
             .map((download, idx) => (
@@ -314,27 +316,27 @@ export const HomeSideBar = () => {
                 <View style={[styles.imageBox]}>
                   <Image
                     style={[styles.image]}
-                    source={{ uri: download?.largest_thumbnail }}
+                    source={{ uri: download?.song?.largest_thumbnail }}
                   />
                 </View>
-                <View style={[styles.content]}>
+                <View style={[styles.content, { gap: 10 }]}>
                   <Text
                     style={[{ color: theme.text, width: 225, fontSize: 12 }]}
                     ellipsizeMode="tail"
                     numberOfLines={1}
                   >
-                    {he.decode(download?.title)}
+                    {he.decode(download?.song?.title)}
                   </Text>
                   <View style={[styles.metadata]}>
                     <Text
                       style={[{ color: theme.textSecondary, fontSize: 12 }]}
                     >
-                      {formatTime(download?.duration)}
+                      {formatTime(download?.song?.duration)}
                     </Text>
                     <Text
                       style={[{ color: theme.textSecondary, fontSize: 12 }]}
                     >
-                      {download?.uploader}
+                      {download?.song?.uploader}
                     </Text>
                   </View>
                 </View>
@@ -359,7 +361,7 @@ export const HomeSideBar = () => {
             ))
         ) : (
           <View style={styles.emptyState}>
-            <DownloasdIcon color={HEXA(theme.accent, 0.3)} size={80} />
+            <DownloadIcon color={HEXA(theme.accent, 0.3)} size={80} />
             <Text style={{ fontSize: 20, color: theme.textSecondary }}>
               Your Downloads Appears Here
             </Text>

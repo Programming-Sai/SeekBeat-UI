@@ -1,5 +1,12 @@
 // contexts/AppStorageContext.js
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
 import { storageGet, storageSet } from "../lib/storage";
 
 const STORAGE_KEY = "@seekbeat:appdata";
@@ -11,15 +18,20 @@ export function AppStorageProvider({ children }) {
 
   // default shape
   const defaultData = {
-    downloads: [], // array of { id, ... }
-    searchHistory: [], // array of { term, when }
-    playlists: {}, // { [playlistId]: { name, items: [] } }
-    saveSearchHistory: true, // whether to save incoming searches
-    viewMode: "list", // "list" | "grid"
-    lastSearch: null, // { type: 'single'|'bulk', ... }
+    downloads: [], // array of { id, webpage_url, status, filename, startedAt, finishedAt, error, ... }
+    searchHistory: [],
+    playlists: {},
+    saveSearchHistory: true,
+    viewMode: "list",
+    lastSearch: null,
   };
 
   const [data, setData] = useState(defaultData);
+
+  // transient map used for UI loading state. Not persisted.
+  // status values: "idle" | "pending" | "done" | "error"
+  const [downloadStatuses, setDownloadStatuses] = useState({});
+  const transientTimersRef = useRef({});
 
   useEffect(() => {
     let mounted = true;
@@ -40,28 +52,166 @@ export function AppStorageProvider({ children }) {
     return () => (mounted = false);
   }, []);
 
-  // persist on change
+  // persist on change (persist only `data`)
   useEffect(() => {
     if (!isReady) return;
     storageSet(STORAGE_KEY, data);
   }, [data, isReady]);
 
-  /* ---------- DOWNLOADS ---------- */
-  const addDownload = (item) =>
-    setData((s) => ({ ...s, downloads: [item, ...(s.downloads || [])] }));
+  /* ---------- DOWNLOADS (persistent + transient status) ---------- */
 
-  const removeDownload = (url) => {
-    setData((s) => ({
-      ...s,
-      downloads: (s.downloads || []).filter((d) => d.webpage_url !== url),
-    }));
+  // Normalize id extraction helper
+  const idFor = (itemOrId) => {
+    if (!itemOrId) return null;
+    if (typeof itemOrId === "string") return itemOrId;
+    return itemOrId.id ?? itemOrId.webpage_url ?? null;
   };
 
-  const clearDownloads = () => setData((s) => ({ ...s, downloads: [] }));
+  // Add or merge a download record (persisted)
+  // item: { id, webpage_url?, song?, status?, filename?, startedAt?, finishedAt?, error?, edits? }
+  const addDownload = useCallback((item) => {
+    const id = idFor(item);
+    if (!id) return;
+    setData((s) => {
+      const existing = (s.downloads || []).find(
+        (d) => (d.id ?? d.webpage_url) === id
+      );
+      if (existing) {
+        // merge into existing
+        const next = (s.downloads || []).map((d) =>
+          (d.id ?? d.webpage_url) === id ? { ...d, ...item } : d
+        );
+        return { ...s, downloads: next };
+      }
+      // prepend newest
+      const next = [{ ...item, id }, ...(s.downloads || [])];
+      return { ...s, downloads: next };
+    });
+  }, []);
 
-  const getDownloads = () => data.downloads || [];
+  // Update a persisted download's fields (merge)
+  const updateDownload = useCallback((idOrItem, patch = {}) => {
+    const id = idFor(idOrItem);
+    if (!id) return;
+    setData((s) => {
+      const next = (s.downloads || []).map((d) =>
+        (d.id ?? d.webpage_url) === id ? { ...d, ...patch } : d
+      );
+      return { ...s, downloads: next };
+    });
+  }, []);
 
-  /* ---------- SEARCH HISTORY ---------- */
+  // Remove persisted download and any transient status
+  const removeDownload = useCallback((idOrUrl) => {
+    const id = idFor(idOrUrl);
+    if (!id) return;
+    setData((s) => ({
+      ...s,
+      downloads: (s.downloads || []).filter(
+        (d) => (d.id ?? d.webpage_url) !== id
+      ),
+    }));
+    setDownloadStatuses((m) => {
+      const copy = { ...m };
+      delete copy[id];
+      return copy;
+    });
+    // clear timer
+    try {
+      const t = transientTimersRef.current[id];
+      if (t) {
+        clearTimeout(t);
+        delete transientTimersRef.current[id];
+      }
+    } catch (e) {}
+  }, []);
+
+  const clearDownloads = useCallback(() => {
+    setData((s) => ({ ...s, downloads: [] }));
+    // clear transient map + timers
+    Object.values(transientTimersRef.current).forEach((t) => {
+      try {
+        clearTimeout(t);
+      } catch (e) {}
+    });
+    transientTimersRef.current = {};
+    setDownloadStatuses({});
+  }, []);
+
+  const getDownloads = useCallback(() => data.downloads || [], [data]);
+
+  // set transient and persisted status. opts: { transientTTL } resets transient status back to "idle" after TTL ms
+  const setDownloadStatus = useCallback(
+    (idOrItem, status, opts = {}) => {
+      const id = idFor(idOrItem);
+      if (!id) return;
+      // set transient
+      setDownloadStatuses((m) => ({ ...m, [id]: status }));
+      // persist status into download record as well for convenience (so list UIs see it)
+      updateDownload(id, { status });
+
+      // clear any existing timer for that id
+      try {
+        const prev = transientTimersRef.current[id];
+        if (prev) {
+          clearTimeout(prev);
+          delete transientTimersRef.current[id];
+        }
+      } catch (e) {}
+
+      if (
+        opts?.transientTTL &&
+        typeof opts.transientTTL === "number" &&
+        opts.transientTTL > 0
+      ) {
+        const t = setTimeout(() => {
+          // reset transient state to idle after TTL
+          setDownloadStatuses((m) => {
+            const copy = { ...m };
+            // only delete key if it's still the same status we set earlier (avoid racing)
+            if (copy[id]) delete copy[id];
+            return copy;
+          });
+          // also update persisted status if you prefer to mark idle
+          updateDownload(id, { status: "idle" });
+          delete transientTimersRef.current[id];
+        }, opts.transientTTL);
+        transientTimersRef.current[id] = t;
+      }
+    },
+    [updateDownload]
+  );
+
+  const getDownloadStatus = useCallback(
+    (idOrItem) => {
+      const id = idFor(idOrItem);
+      if (!id) return "idle";
+      // transient status wins
+      const transient = downloadStatuses[id];
+      if (transient) return transient;
+      // fallback to persisted
+      const persisted = (data.downloads || []).find(
+        (d) => (d.id ?? d.webpage_url) === id
+      );
+      return persisted?.status ?? "idle";
+    },
+    [downloadStatuses, data]
+  );
+
+  // cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(transientTimersRef.current || {}).forEach((t) => {
+        try {
+          clearTimeout(t);
+        } catch (e) {}
+      });
+      transientTimersRef.current = {};
+    };
+  }, []);
+
+  /* ---------- The rest of your existing context: search history, playlists etc ---------- */
+
   const pushSearch = (term) =>
     setData((s) => {
       if (!s.saveSearchHistory) return s;
@@ -95,13 +245,11 @@ export function AppStorageProvider({ children }) {
 
   const getSearchHistory = () => data.searchHistory || [];
 
-  /* ---------- SAVE SEARCH FLAG ---------- */
   const setSaveSearchHistory = (enabled) =>
     setData((s) => ({ ...s, saveSearchHistory: !!enabled }));
 
   const getSaveSearchHistory = () => !!data.saveSearchHistory;
 
-  /* ---------- VIEW MODE ---------- */
   const setViewMode = (mode) =>
     setData((s) => ({
       ...s,
@@ -110,7 +258,6 @@ export function AppStorageProvider({ children }) {
 
   const getViewMode = () => data.viewMode;
 
-  /* ---------- PLAYLISTS ---------- */
   const setPlaylists = (playlists) => setData((s) => ({ ...s, playlists }));
 
   const addPlaylist = (id, playlist) =>
@@ -128,7 +275,6 @@ export function AppStorageProvider({ children }) {
 
   const getPlaylists = () => data.playlists || {};
 
-  /* ---------- LAST SEARCH CACHE ---------- */
   const setLastSearch = (payload) =>
     setData((s) => ({ ...s, lastSearch: payload || null }));
 
@@ -143,11 +289,14 @@ export function AppStorageProvider({ children }) {
         isReady,
         setData,
 
-        // Downloads
+        // Downloads persistent + transient helpers
         addDownload,
+        updateDownload,
         removeDownload,
         clearDownloads,
         getDownloads,
+        setDownloadStatus,
+        getDownloadStatus,
 
         // Search history
         pushSearch,

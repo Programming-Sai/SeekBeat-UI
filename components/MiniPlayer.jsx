@@ -24,6 +24,9 @@ import { useRouter } from "expo-router";
 import { InlineMenu } from "./InlineMenu";
 import { MoreIcon } from "./MoreIcon";
 import SeekBar from "./SeekBar";
+import { useAppStorage } from "../contexts/AppStorageContext";
+import { useDownloader } from "../contexts/DownloaderContext";
+import Toast from "react-native-toast-message";
 
 /**
  * Interactive MiniPlayer with click + drag seek.
@@ -59,6 +62,44 @@ export default function MiniPlayer() {
   // dragging state
   const [isDragging, setIsDragging] = useState(false);
   const [dragPct, setDragPct] = useState(0); // 0..1 while dragging
+  const { download } = useDownloader(); // default streamBase baked in or pass your base
+  const { getDownloadStatus } = useAppStorage();
+
+  const onDownload = async (song) => {
+    if (!song) return;
+    // const id = song?.id ?? song?.webpage_url;
+
+    // optional: show immediate pending toast
+    Toast.show({
+      type: "info",
+      position: "top",
+      text1: "Downloading",
+      text2: `${song?.title} — preparing download...`,
+      visibilityTime: 3000,
+      autoHide: true,
+    });
+
+    try {
+      // wait for the download to finish (or throw)
+      const { filename } = await download(song);
+
+      Toast.show({
+        type: "success",
+        position: "top",
+        text1: "Success",
+        text2: `${song?.title} downloaded as ${filename}`,
+        visibilityTime: 4000,
+      });
+    } catch (err) {
+      Toast.show({
+        type: "error",
+        position: "top",
+        text1: "Download failed",
+        text2: String(err),
+        visibilityTime: 4000,
+      });
+    }
+  };
 
   return (
     <View
@@ -181,7 +222,7 @@ export default function MiniPlayer() {
               {
                 label: "Play",
                 onPress: () => {
-                  router.push(`/player/${s.id}`);
+                  router.push(`/player/${s?.id}`);
                   closeMini(true);
                 },
               },
@@ -193,10 +234,17 @@ export default function MiniPlayer() {
                 },
               },
               {
-                label: "Download",
+                label:
+                  getDownloadStatus(s?.id) === "pending"
+                    ? "Preparing downlad..."
+                    : getDownloadStatus(s?.id) === "done"
+                    ? "Mp3 Downloaded"
+                    : getDownloadStatus(s?.id) === "error"
+                    ? "Download failed — retry?"
+                    : "Download",
                 onPress: () => {
-                  console.log("Downloading...");
-                  closeMini(true);
+                  onDownload(s);
+                  // closeMini(true);
                 },
               },
               {

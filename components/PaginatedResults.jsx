@@ -6,6 +6,9 @@ import formatTime, { timeAgo } from "../lib/utils"; // your existing util
 import { getPrimaryTextColor, HEXA } from "../lib/colors";
 import { useTheme } from "../contexts/ThemeContext";
 import { usePlayer } from "../contexts/PlayerContext";
+import { useDownloader } from "../contexts/DownloaderContext";
+import { useAppStorage } from "../contexts/AppStorageContext";
+import Toast from "react-native-toast-message";
 
 /**
  * Props:
@@ -27,6 +30,8 @@ export default function PaginatedResults({
   const { theme, themeMode, accentKey, accentColors } = useTheme();
   const [page, setPage] = useState(1);
   const { setQueueFromSearchResults, showMiniForIndex } = usePlayer();
+  const { download } = useDownloader(); // default streamBase baked in or pass your base
+  const { getDownloadStatus } = useAppStorage();
 
   // reset when songs array changes
   useEffect(() => {
@@ -55,8 +60,40 @@ export default function PaginatedResults({
   const goPrev = () => goto(page - 1);
   const goNext = () => goto(page + 1);
 
-  const onDownload = (song) => {
-    console.log("This would be Downloaded: ", song);
+  const onDownload = async (song) => {
+    if (!song) return;
+    // const id = song?.id ?? song?.webpage_url;
+
+    // optional: show immediate pending toast
+    Toast.show({
+      type: "info",
+      position: "top",
+      text1: "Downloading",
+      text2: `${song?.title} — preparing download...`,
+      visibilityTime: 3000,
+      autoHide: true,
+    });
+
+    try {
+      // wait for the download to finish (or throw)
+      const { filename } = await download(song);
+
+      Toast.show({
+        type: "success",
+        position: "top",
+        text1: "Success",
+        text2: `${song?.title} downloaded as ${filename}`,
+        visibilityTime: 4000,
+      });
+    } catch (err) {
+      Toast.show({
+        type: "error",
+        position: "top",
+        text1: "Download failed",
+        text2: String(err),
+        visibilityTime: 4000,
+      });
+    }
   };
 
   const onPlay = (idx) => {
@@ -220,8 +257,9 @@ export default function PaginatedResults({
                       ]}
                     >
                       <Pressable
-                        onPress={() => onDownload(song.webpage_url)}
+                        onPress={() => onDownload(song)}
                         style={[styles?.button]}
+                        disabled={getDownloadStatus(song?.id) === "pending"}
                       >
                         <Text
                           style={[
@@ -236,7 +274,13 @@ export default function PaginatedResults({
                             },
                           ]}
                         >
-                          Download Mp3
+                          {getDownloadStatus(song?.id) === "pending"
+                            ? "Preparing..."
+                            : getDownloadStatus(song?.id) === "done"
+                            ? "Mp3 Downloaded"
+                            : getDownloadStatus(song?.id) === "error"
+                            ? "Download failed — retry?"
+                            : "Download Mp3"}
                         </Text>
                       </Pressable>
                     </View>
@@ -394,8 +438,9 @@ export default function PaginatedResults({
                       ]}
                     >
                       <Pressable
-                        onPress={() => onDownload(song.webpage_url)}
+                        onPress={() => onDownload(song)}
                         style={[styles?.button]}
+                        disabled={getDownloadStatus(song?.id) === "pending"}
                       >
                         <Text
                           style={[
@@ -410,7 +455,13 @@ export default function PaginatedResults({
                             },
                           ]}
                         >
-                          Download Mp3
+                          {getDownloadStatus(song?.id) === "pending"
+                            ? "Preparing..."
+                            : getDownloadStatus(song?.id) === "done"
+                            ? "Mp3 Downloaded"
+                            : getDownloadStatus(song?.id) === "error"
+                            ? "Download failed — retry?"
+                            : "Download Mp3"}
                         </Text>
                       </Pressable>
                     </View>
