@@ -131,7 +131,7 @@ export const PlayerSideBar = ({ edit }) => {
                 backgroundColor: isActive
                   ? theme.accent
                   : isSelected
-                  ? HEXA(theme.accent, 0.1)
+                  ? HEXA(theme.accent, 0.2)
                   : theme.background,
                 borderColor: isPlaying ? theme.accent : "transparent",
                 borderWidth: isPlaying ? 1 : 0,
