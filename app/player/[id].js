@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useRightSidebar } from "../../contexts/SidebarContext";
@@ -16,7 +17,7 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { useSearch } from "../../contexts/SearchContext";
 import { usePlayer } from "../../contexts/PlayerContext";
 import he from "he";
-import formatTime from "../../lib/utils";
+import formatTime, { timeAgo } from "../../lib/utils";
 import { HEXA } from "../../lib/colors";
 import { PreviousIcon } from "../../components/PreviousIcon";
 import { PauseIcon } from "../../components/PauseIcon";
@@ -77,7 +78,7 @@ export default function PlayerPage() {
 
   // safe destructuring / fallbacks
   const { setRightSidebarKey } = rightSidebarCtx ?? {};
-  const { theme, themeMode } = themeCtx ?? {
+  const { theme, themeMode, accentColors, accentKey } = themeCtx ?? {
     theme: {
       background: "#fff",
       text: "#000",
@@ -389,7 +390,7 @@ export default function PlayerPage() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.coverWrap}>
+        <View style={[styles.coverWrap, { position: "relative" }]}>
           {!isEditor ? (
             // View Mode (just show image)
             <Image
@@ -477,6 +478,26 @@ export default function PlayerPage() {
               </TouchableOpacity>
             </View>
           )}
+          {(isBuffering || loadingStream) && (
+            <View
+              style={{
+                zIndex: 250,
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                backgroundColor: HEXA(theme.background, 0.6),
+                display: "grid",
+                placeContent: "center",
+              }}
+            >
+              <ActivityIndicator
+                size={100}
+                color={theme.text}
+                // color={accentColors[accentKey].dark}
+              />
+            </View>
+          )}
         </View>
 
         {!isEditor ? (
@@ -511,10 +532,15 @@ export default function PlayerPage() {
           <Text
             style={[
               styles.uploader,
-              { color: themeMode === "dark" ? theme.textSecondary : "white" },
+              {
+                color: themeMode === "dark" ? theme.textSecondary : "white",
+                fontWeight: "bold",
+              },
             ]}
           >
             {track.uploader}
+            {"  "} ● {"  "}
+            {timeAgo(track.upload_date)}
           </Text>
         ) : (
           <TextInput
@@ -822,7 +848,6 @@ export default function PlayerPage() {
             style={[
               {
                 width: "100%",
-                // border: "2px solid red",
                 flex: 1,
                 paddingHorizontal: 20,
               },
@@ -1033,7 +1058,7 @@ export default function PlayerPage() {
             <OpenIcon size={25} color={theme.text} />
           </Link>
         </View>
-        <Text>{(isBuffering || loadingStream) && "Loading"}</Text>
+        {/* <Text>{(isBuffering || loadingStream) && "Loading"}</Text> */}
       </ScrollView>
     </ImageBackground>
   );

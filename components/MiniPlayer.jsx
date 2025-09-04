@@ -8,6 +8,7 @@ import {
   View,
   Platform,
   PanResponder,
+  ActivityIndicator,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { Image } from "react-native";
@@ -22,13 +23,14 @@ import { usePlayer } from "../contexts/PlayerContext";
 import { useRouter } from "expo-router";
 import { InlineMenu } from "./InlineMenu";
 import { MoreIcon } from "./MoreIcon";
+import SeekBar from "./SeekBar";
 
 /**
  * Interactive MiniPlayer with click + drag seek.
  * Uses usePlayer().seek(seconds) to update playback position.
  */
 export default function MiniPlayer() {
-  const { theme } = useTheme();
+  const { theme, themeMode } = useTheme();
   const {
     currentTrack,
     position,
@@ -39,6 +41,8 @@ export default function MiniPlayer() {
     miniVisible,
     closeMini,
     seek,
+    isBuffering,
+    loadingStream,
   } = usePlayer();
 
   // don't render anything if mini is closed or no current track
@@ -55,121 +59,6 @@ export default function MiniPlayer() {
   // dragging state
   const [isDragging, setIsDragging] = useState(false);
   const [dragPct, setDragPct] = useState(0); // 0..1 while dragging
-
-  // ref to progress container (host element on web, RN view on native)
-  const progressRef = useRef(null);
-  // cached bounding rect for calculations (web) or latest layout (native)
-  const containerRectRef = useRef({ left: 0, width: 0 });
-
-  // helper to measure container rect (web or native)
-  const measureContainer = useCallback(async () => {
-    const node = progressRef.current;
-    if (!node) return null;
-
-    // Web: DOM node likely exposes getBoundingClientRect()
-    if (node.getBoundingClientRect) {
-      const r = node.getBoundingClientRect();
-      containerRectRef.current = { left: r.left, width: r.width };
-      return containerRectRef.current;
-    }
-
-    // Native: try measureInWindow (supported by RN)
-    if (node.measureInWindow) {
-      return new Promise((resolve) => {
-        try {
-          node.measureInWindow((x, y, width, height) => {
-            containerRectRef.current = { left: x, width };
-            resolve(containerRectRef.current);
-          });
-        } catch (e) {
-          resolve(null);
-        }
-      });
-    }
-
-    return null;
-  }, []);
-
-  // compute displayed pct (either dragging or current context)
-  const displayedPct = isDragging ? dragPct : pctFromCtx;
-
-  // convert clientX into ratio using cached or measured rect
-  const computeRatioFromClientX = useCallback(
-    async (clientX) => {
-      // ensure we have rect
-      if (!containerRectRef.current.width) {
-        await measureContainer();
-      }
-      const { left, width } = containerRectRef.current;
-      if (!width || width <= 0) return 0;
-      const offsetX = clientX - left;
-      const ratio = offsetX / width;
-      return Math.max(0, Math.min(1, ratio));
-    },
-    [measureContainer]
-  );
-
-  /********** Mouse / Touch handlers **********/
-
-  // PanResponder for native (and works on web too as fallback)
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: async (evt, gestureState) => {
-        // start dragging
-        setIsDragging(true);
-        // determine clientX (native: gestureState.x0 / pageX; web: nativeEvent.clientX)
-        const native = evt.nativeEvent || {};
-        const clientX = native.pageX ?? native.locationX ?? gestureState.x0;
-        const ratio = await computeRatioFromClientX(clientX);
-        setDragPct(ratio);
-      },
-      onPanResponderMove: async (evt, gestureState) => {
-        const native = evt.nativeEvent || {};
-        const clientX = native.pageX ?? gestureState.moveX ?? native.clientX;
-        const ratio = await computeRatioFromClientX(clientX);
-        setDragPct(ratio);
-      },
-      onPanResponderRelease: async (evt, gestureState) => {
-        const native = evt.nativeEvent || {};
-        const clientX = native.pageX ?? gestureState.moveX ?? native.clientX;
-        const ratio = await computeRatioFromClientX(clientX);
-        // seek to final position and stop dragging
-        const toSec = ratio * (duration || 0);
-        seek(toSec);
-        setIsDragging(false);
-      },
-      onPanResponderTerminationRequest: () => true,
-      onPanResponderTerminate: () => {
-        // cancelled
-        setIsDragging(false);
-      },
-    })
-  ).current;
-
-  // click-to-seek handler: receives DOM/mouse event on web or RN Pressable event
-  const onBarPress = useCallback(
-    async (evt) => {
-      // evt.nativeEvent has clientX / locationX depending on platform
-      const native = evt.nativeEvent || {};
-      const clientX = native.clientX ?? native.pageX ?? native.locationX ?? 0;
-      const ratio = await computeRatioFromClientX(clientX);
-      const to = ratio * (duration || 0);
-      seek(to);
-    },
-    [computeRatioFromClientX, duration, seek]
-  );
-
-  // style for thumb position
-  const thumbLeftStyle = useMemo(
-    () => ({
-      left: `${displayedPct * 100}%`,
-      transform: [{ translateX: -8 }],
-    }),
-    [displayedPct]
-  );
 
   return (
     <View
@@ -189,7 +78,7 @@ export default function MiniPlayer() {
             router.push(`/player/${s.id}`);
             closeMini(true);
           }}
-          style={styles.imgBox}
+          style={[styles.imgBox, { position: "relative" }]}
         >
           {s.largest_thumbnail ? (
             <Image style={styles.img} source={{ uri: s.largest_thumbnail }} />
@@ -200,6 +89,26 @@ export default function MiniPlayer() {
                 { backgroundColor: HEXA(theme.accent, 0.12) },
               ]}
             />
+          )}
+          {(isBuffering || loadingStream) && (
+            <View
+              style={{
+                zIndex: 250,
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                backgroundColor: HEXA(theme.background, 0.6),
+                display: "grid",
+                placeContent: "center",
+              }}
+            >
+              <ActivityIndicator
+                size={25}
+                color={theme.text}
+                // color={accentColors[accentKey].dark}
+              />
+            </View>
           )}
         </TouchableOpacity>
 
@@ -241,42 +150,16 @@ export default function MiniPlayer() {
               )}
             </Text>
 
-            {/* progress bar container */}
-            <View
-              ref={progressRef}
-              // Pressable allows click; attach PanResponder handlers to inner view
-              style={[
-                styles.progress,
-                { backgroundColor: HEXA(theme.textSecondary, 0.12) },
-              ]}
-            >
-              {/* clickable overlay */}
-              <Pressable
-                style={StyleSheet.absoluteFill}
-                onPress={onBarPress}
-                {...(Platform.OS !== "web" ? panResponder.panHandlers : {})}
-                // On web, PanResponder can still work but we'll also add pointer handlers below
-              />
-
-              {/* active bar */}
-              <View
-                style={[
-                  styles.progressBar,
-                  {
-                    width: `${(isDragging ? dragPct : pctFromCtx) * 100}%`,
-                    backgroundColor: theme.accent,
-                  },
-                ]}
-              />
-
-              {/* Thumb (overlay) */}
-              <View
-                style={[
-                  styles.thumb,
-                  { backgroundColor: theme.accent },
-                  thumbLeftStyle,
-                ]}
-                {...(Platform.OS === "web" ? panResponder.panHandlers : {})}
+            <View style={[{ width: "90%", marginLeft: 3 }]}>
+              <SeekBar
+                progressPct={pctFromCtx}
+                duration={duration}
+                onSeek={(sec) => seek?.(sec)}
+                accent={theme.accent}
+                background={HEXA(
+                  themeMode === "dark" ? theme.textSecondary : "#fff",
+                  0.12
+                )}
               />
             </View>
 
