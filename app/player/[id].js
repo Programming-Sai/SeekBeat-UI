@@ -120,6 +120,7 @@ export default function PlayerPage() {
     loadingStream,
     isBuffering,
     setPlaybackRate,
+    _streamCache,
   } = player;
 
   // sync URL -> player context once (use URL as source of truth)
@@ -132,7 +133,8 @@ export default function PlayerPage() {
 
     // if entering editor mode, pause; if leaving, resume (or your desired behaviour)
     setIsPlaying(!newIsEditor);
-  }, [edit, setIsEditor, setIsPlaying]);
+    // console.log("STREAMING CACHE: ", _streamCache());
+  }, [edit, setIsEditor, setIsPlaying, _streamCache]);
 
   const queueCommands = [
     {

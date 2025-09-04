@@ -70,11 +70,25 @@ export function PlayerProvider({
     return song.id ?? song.webpage_url ?? song.title ?? null;
   };
 
+  // safe setter to export instead of raw setCurrentIndex
+  const safeSetCurrentIndex = useCallback((idx) => {
+    const len = (queueRef.current && queueRef.current.length) || 0;
+    if (typeof idx !== "number" || idx < 0 || idx >= len) {
+      // invalid -> clamp or stop playback
+      if (len === 0) setCurrentIndex(-1);
+      else setCurrentIndex(Math.max(0, Math.min(idx, len - 1)));
+      return;
+    }
+    setCurrentIndex(idx);
+  }, []);
+
   // prev track key to avoid reloading when queue recreated but same song
   const prevTrackKeyRef = useRef(null);
   // near top of PlayerProvider, add these refs/states
-  const cacheRef = useRef(new Map()); // key: song id/webpage_url -> { src, ts }
-  const inFlightRef = useRef({});
+  // add near your other refs
+  const cacheRef = useRef(new Map()); // key -> { src, ts }
+  const inFlightRef = useRef({}); // key -> { controller, promise }
+  const currentLoadKeyRef = useRef(null); // key currently being actively loaded
   const prefetchControllersRef = useRef(new Map()); // key -> AbortController for prefetches
   const [isBuffering, setIsBuffering] = useState(false); // new: buffering state exposed to UI
 
@@ -445,8 +459,31 @@ export function PlayerProvider({
    */
   const createAndAttachAudio = useCallback(
     (src, { autoplay = true } = {}) => {
-      cleanupAudio();
       if (!src) return null;
+
+      const existing = audioRef.current;
+      if (existing && existing.src) {
+        // browser .src may be absolute — compare endsWith or equality
+        const existingSrc = existing.src;
+        if (existingSrc === src || existingSrc.endsWith(src)) {
+          // reuse: just update volume/playbackRate and event handlers that might have changed
+          try {
+            existing.volume = Math.max(0, Math.min(1, volumeValue));
+            existing.playbackRate = playbackRate;
+          } catch (e) {
+            console.warn("Failed to update existing audio props", e);
+          }
+          // ensure RAF simulation is stopped if present
+          stopRaf?.();
+          setStreamUrl(src);
+          // autoplay if requested
+          if (autoplay && existing.paused) existing.play().catch(() => {});
+          return existing;
+        }
+      }
+
+      // new src -> create new element
+      cleanupAudio(); // remove old audio only when creating a new one
 
       const audio = new Audio(src);
       if (isSameOrigin(src)) audio.crossOrigin = "anonymous";
@@ -455,7 +492,6 @@ export function PlayerProvider({
       audio.volume = Math.max(0, Math.min(1, volumeValue));
       audio.playbackRate = playbackRate;
 
-      // important: buffering state
       setIsBuffering(true);
 
       audio.onloadedmetadata = () => {
@@ -468,7 +504,6 @@ export function PlayerProvider({
           audio.play().catch(() => {});
           setIsPlaying(true);
         } else {
-          // nextTrack(false);
           nextTrack(!miniVisibleRef.current);
         }
       };
@@ -479,73 +514,86 @@ export function PlayerProvider({
         setIsPlaying(false);
         setIsBuffering(false);
       };
-
-      // *crucial* — when the audio is ready to actually play, clear buffering
-      audio.oncanplay = () => {
-        setIsBuffering(false);
-      };
+      audio.oncanplay = () => setIsBuffering(false);
 
       audioRef.current = audio;
       setStreamUrl(src);
 
+      // stop RAF because we now have real audio
+      stopRaf?.();
+
       if (autoplay) {
         audio
           .play()
-          .then(() => {
-            setIsPlaying(true);
-          })
+          .then(() => setIsPlaying(true))
           .catch((err) => {
             console.warn("Audio play() failed:", err);
             setIsPlaying(false);
           });
-      } else {
-        setIsPlaying(false);
-      }
+      } else setIsPlaying(false);
 
       return audio;
     },
-    [cleanupAudio, nextTrack, repeatMode, playbackRate, volumeValue]
+    [cleanupAudio, nextTrack, repeatMode, playbackRate, volumeValue, stopRaf]
   );
+
+  const fetchStreamForKey = useCallback(async (endpoint, key) => {
+    if (!endpoint || !key) return null;
+
+    // if we already cached, return quickly
+    const cached = cacheRef.current.get(key);
+    if (cached?.src) return cached.src;
+
+    // if a fetch is already in flight for this key, return its promise
+    if (inFlightRef.current[key]) {
+      return inFlightRef.current[key].promise;
+    }
+
+    const controller = new AbortController();
+    const promise = (async () => {
+      try {
+        const res = await fetch(endpoint, { signal: controller.signal });
+        if (!res.ok) throw new Error("fetch failed: " + res.status);
+        const data = await res.json();
+        const src = data?.stream_url ?? data?.streamUrl ?? null;
+        if (!src) throw new Error("no stream_url in backend response");
+        cacheRef.current.set(key, { src, ts: Date.now() });
+        return src;
+      } finally {
+        // cleanup inFlight entry regardless (so aborted/errored fetch won't be left hanging)
+        // small delay to ensure callers that are awaiting can finish reading inFlightRef if needed
+        delete inFlightRef.current[key];
+      }
+    })();
+
+    inFlightRef.current[key] = { controller, promise };
+    return promise;
+  }, []);
 
   /* --------- Prefetch helper (caches result) --------- */
 
   // Prefetch stream_url JSON and cache it (non-blocking)
   const prefetchForIndex = useCallback(
     async (idx) => {
-      if (!Array.isArray(queue) || idx < 0 || idx >= queue.length) return;
-      const song = queue[idx];
-      const key = song.id ?? song.webpage_url ?? song.title;
-      if (cacheRef.current.has(key)) return; // already cached
+      const q = queueRef.current;
+      if (!Array.isArray(q) || idx < 0 || idx >= q.length) return;
+      const song = q[idx];
+      const key = songKeyFor(song);
+      if (!key) return;
 
-      // abort any previous prefetch for that key
-      try {
-        prefetchControllersRef.current.get(key)?.abort();
-      } catch (e) {}
+      if (cacheRef.current.has(key)) return; // already cached
 
       const endpoint = getStreamUrl(song);
       if (!endpoint) return;
 
-      const controller = new AbortController();
-      prefetchControllersRef.current.set(key, controller);
-
       try {
-        const res = await fetch(endpoint, { signal: controller.signal });
-        if (!res.ok) throw new Error("prefetch failed:" + res.status);
-        const data = await res.json();
-        const src = data?.stream_url ?? data?.streamUrl ?? null;
-        if (src) {
-          cacheRef.current.set(key, { src, ts: Date.now() });
-        }
+        await fetchStreamForKey(endpoint, key); // will set cacheRef
       } catch (err) {
-        if (err?.name !== "AbortError") {
-          console.warn("prefetch error", err);
-        }
-      } finally {
-        // remove controller ref
-        prefetchControllersRef.current.delete(key);
+        // ignore prefetch errors
+        if (err?.name !== "AbortError") console.warn("prefetch failed", err);
       }
     },
-    [queue, getStreamUrl]
+    [getStreamUrl, fetchStreamForKey]
   );
 
   /**
@@ -556,61 +604,74 @@ export function PlayerProvider({
    */
   const loadStreamForIndex = useCallback(
     async (idx, { autoplay = true } = {}) => {
-      if (!Array.isArray(queue) || idx < 0 || idx >= queue.length) return null;
-      const song = queue[idx];
-      const key = song.id ?? song.webpage_url ?? song.title;
+      const q = queueRef.current;
+      if (!Array.isArray(q) || idx < 0 || idx >= q.length) return null;
+      const song = q[idx];
+      const key = songKeyFor(song);
+      if (!key) return null;
+
       const endpoint = getStreamUrl(song);
       if (!endpoint) {
         console.warn("no stream endpoint for song", song);
         return null;
       }
 
-      // If src is cached, attach immediately
+      // If audio already loaded and same src, reuse (avoid recreate)
       const cached = cacheRef.current.get(key);
       if (cached?.src) {
         setLoadingStream(false);
-        // attach audio from cached src (this sets isBuffering->true until oncanplay)
-        const audio = createAndAttachAudio(cached.src, { autoplay });
-        // optionally prefetch next
-        return audio;
+        // If the existing audio already has this src, just reuse it
+        const existing = audioRef.current;
+        if (
+          existing &&
+          (existing.src === cached.src || existing.src.endsWith(cached.src))
+        ) {
+          try {
+            existing.volume = Math.max(0, Math.min(1, volumeValue));
+            existing.playbackRate = playbackRate;
+          } catch (e) {}
+          if (autoplay && existing.paused) existing.play().catch(() => {});
+          return existing;
+        }
+        // else create a new audio from cached src
+        return createAndAttachAudio(cached.src, { autoplay });
       }
 
-      // else fetch and cache with inflightControllerRef (single active "load" controller)
-      const myId = ++loadIdRef.current;
-      try {
-        inflightControllerRef.current?.abort();
-      } catch (e) {}
-      const controller = new AbortController();
-      inflightControllerRef.current = controller;
+      // Abort previous load for a different key (but don't abort a fetch for the same key)
+      if (currentLoadKeyRef.current && currentLoadKeyRef.current !== key) {
+        try {
+          const prev = inFlightRef.current[currentLoadKeyRef.current];
+          prev?.controller?.abort();
+        } catch (e) {
+          console.warn("failed to abort previous load", e);
+        }
+        currentLoadKeyRef.current = null;
+      }
 
+      // get (or wait for) fetch for this key
       setLoadingStream(true);
       setIsBuffering(true);
+      currentLoadKeyRef.current = key;
 
       try {
-        const res = await fetch(endpoint, { signal: controller.signal });
-        if (myId !== loadIdRef.current) {
+        const src = await fetchStreamForKey(endpoint, key); // reuse inFlight if present
+        // If currentLoadKey changed meanwhile, bail out
+        if (currentLoadKeyRef.current !== key) {
           setLoadingStream(false);
           setIsBuffering(false);
           return null;
         }
-        if (!res.ok) throw new Error("stream endpoint failed: " + res.status);
-        const data = await res.json();
-        const src = data?.stream_url ?? data?.streamUrl ?? null;
-        if (!src) throw new Error("no stream_url in backend response");
-
-        // cache it (so future skips can be instant)
-        cacheRef.current.set(key, { src, ts: Date.now() });
 
         // attach audio
         const audio = createAndAttachAudio(src, { autoplay });
 
         setLoadingStream(false);
-        inflightControllerRef.current = null;
+        currentLoadKeyRef.current = null;
 
-        // optionally prefetch next track (non-blocking)
-        if (!shuffle && queue.length > 1) {
+        // optionally prefetch next (forward only for now)
+        if (!shuffle && q.length > 1) {
           const nextIdx =
-            idx + 1 < queue.length ? idx + 1 : repeatMode === "all" ? 0 : null;
+            idx + 1 < q.length ? idx + 1 : repeatMode === "all" ? 0 : null;
           if (nextIdx !== null) prefetchForIndex(nextIdx);
         }
 
@@ -623,17 +684,19 @@ export function PlayerProvider({
         }
         setLoadingStream(false);
         setIsBuffering(false);
-        inflightControllerRef.current = null;
+        currentLoadKeyRef.current = null;
         return null;
       }
     },
     [
-      queue,
       getStreamUrl,
       createAndAttachAudio,
+      fetchStreamForKey,
       prefetchForIndex,
       shuffle,
       repeatMode,
+      volumeValue,
+      playbackRate,
     ]
   );
 
@@ -753,7 +816,7 @@ export function PlayerProvider({
     queue,
     currentIndex,
     currentTrack,
-    setCurrentIndex,
+    setCurrentIndex: safeSetCurrentIndex,
     isPlaying,
     setIsPlaying,
     position,
@@ -803,7 +866,7 @@ export function PlayerProvider({
     loadStreamForIndex,
 
     // expose cache for debugging if you want
-    _streamCache: cacheRef,
+    _streamCache: () => Array.from(cacheRef.current.entries()),
     isBuffering,
   };
 
