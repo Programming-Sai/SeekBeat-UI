@@ -10,19 +10,14 @@ import React, {
 } from "react";
 
 /**
- * PlayerContext (updated)
- *
- * - Adds stream caching to avoid re-fetching backend stream_url.
- * - Volume / speed updates no longer recreate the audio element.
- * - Changing the queue / re-ordering won't force reload if the current track identity is unchanged.
+ * PlayerContext - adjusted:
+ *  - do NOT abort inFlight fetches inside cleanupAudio (fixes immediate-cancel bug)
+ *  - keep race protections and caching
  */
 
 const PlayerContext = createContext(null);
 
-export function PlayerProvider({
-  children,
-  streamBase = null /* optional backend base e.g. '/api/stream' */,
-}) {
+export function PlayerProvider({ children, streamBase = null }) {
   const [queue, setQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -35,64 +30,71 @@ export function PlayerProvider({
   const [duration, setDuration] = useState(0);
   const [isEditor, setIsEditor] = useState(false);
 
+  const [streamUrl, setStreamUrl] = useState(null);
+  const [loadingStream, setLoadingStream] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [volumeValue, setVolumeValueState] = useState(1);
+  const [playbackRate, setPlaybackRateState] = useState(1);
+
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
   const router = useRouter();
 
-  // audio + fetch helpers
   const audioRef = useRef(null);
   const loadIdRef = useRef(0);
-  const inflightControllerRef = useRef(null);
+  const nextTrackRef = useRef(null);
 
-  // queueRef keeps a stable reference for functions that shouldn't re-create when queue changes
   const queueRef = useRef(queue);
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
+
+  const currentIndexRef = useRef(currentIndex);
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
   const miniVisibleRef = useRef(miniVisible);
   useEffect(() => {
     miniVisibleRef.current = miniVisible;
   }, [miniVisible]);
 
-  const [streamUrl, setStreamUrl] = useState(null);
-  const [loadingStream, setLoadingStream] = useState(false);
-  const [volumeValue, setVolumeValueState] = useState(1); // 0..1
-  const [playbackRate, setPlaybackRateState] = useState(1);
+  const cacheRef = useRef(new Map());
+  const inFlightRef = useRef({});
+  const currentLoadKeyRef = useRef(null);
+  const prefetchControllersRef = useRef(new Map());
+  const prevTrackKeyRef = useRef(null);
+  const playFailedForKeyRef = useRef(new Set());
 
-  // helper: current track
   const currentTrack =
     currentIndex >= 0 && queue[currentIndex] ? queue[currentIndex] : null;
 
-  // utility to identify a song robustly
   const songKeyFor = (song) => {
     if (!song) return null;
     return song.id ?? song.webpage_url ?? song.title ?? null;
   };
 
-  // safe setter to export instead of raw setCurrentIndex
+  const isSameOrigin = (url) => {
+    try {
+      const u = new URL(url, window.location.href);
+      return u.origin === window.location.origin;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
   const safeSetCurrentIndex = useCallback((idx) => {
     const len = (queueRef.current && queueRef.current.length) || 0;
     if (typeof idx !== "number" || idx < 0 || idx >= len) {
-      // invalid -> clamp or stop playback
       if (len === 0) setCurrentIndex(-1);
-      else setCurrentIndex(Math.max(0, Math.min(idx, len - 1)));
+      else setCurrentIndex(clamp(idx, 0, Math.max(0, len - 1)));
       return;
     }
     setCurrentIndex(idx);
   }, []);
 
-  // prev track key to avoid reloading when queue recreated but same song
-  const prevTrackKeyRef = useRef(null);
-  // near top of PlayerProvider, add these refs/states
-  // add near your other refs
-  const cacheRef = useRef(new Map()); // key -> { src, ts }
-  const inFlightRef = useRef({}); // key -> { controller, promise }
-  const currentLoadKeyRef = useRef(null); // key currently being actively loaded
-  const prefetchControllersRef = useRef(new Map()); // key -> AbortController for prefetches
-  const [isBuffering, setIsBuffering] = useState(false); // new: buffering state exposed to UI
-
-  // cap queue to 50 items safely
   const setQueueSafe = useCallback((arr) => {
     if (!Array.isArray(arr)) {
       setQueue([]);
@@ -104,25 +106,26 @@ export function PlayerProvider({
     }
     const next = arr.slice(0, 50);
     setQueue(next);
-    setCurrentIndex((ci) => {
-      if (next.length === 0) return -1;
-      return ci >= 0 && ci < next.length ? ci : 0;
-    });
+    setCurrentIndex((ci) =>
+      next.length === 0 ? -1 : ci >= 0 && ci < next.length ? ci : 0
+    );
   }, []);
 
-  /* --------- Audio lifecycle: cleanup/create/attach --------- */
   const cleanupAudio = useCallback(() => {
-    try {
-      inflightControllerRef.current?.abort();
-    } catch (e) {
-      console.warn(String(e));
-    }
+    // IMPORTANT: Do NOT abort inFlightRef fetch controllers here.
+    // Aborting prefetch/in-flight fetches here causes fetchStreamForKey to reuse aborted promises.
+    // Only clean up the audio element and audio-related state.
     const a = audioRef.current;
-    if (!a) return;
+    if (!a) {
+      setStreamUrl(null);
+      setIsPlaying(false);
+      setIsBuffering(false);
+      return;
+    }
     try {
       a.pause();
     } catch (e) {
-      console.warn(String(e));
+      /* ignore */
     }
     a.onloadedmetadata = null;
     a.ontimeupdate = null;
@@ -132,13 +135,19 @@ export function PlayerProvider({
     a.onerror = null;
     try {
       a.src = "";
-    } catch (e) {
-      console.warn(String(e));
-    }
+    } catch (e) {}
     audioRef.current = null;
     setStreamUrl(null);
     setIsPlaying(false);
     setIsBuffering(false);
+  }, []);
+
+  const stopRaf = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      lastTimeRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -151,163 +160,416 @@ export function PlayerProvider({
     }
   }, [currentTrack]);
 
+  // helper: map a stream src back to the cache key (reverse lookup)
+  const keyForAudioSrc = (src) => {
+    for (const [k, v] of cacheRef.current.entries()) {
+      if (v?.src && (v.src === src || v.src.endsWith(src))) return k;
+    }
+    return null;
+  };
+
+  const createAndAttachAudio = useCallback(
+    (src, { autoplay = true } = {}) => {
+      if (!src) return null;
+      const existing = audioRef.current;
+      if (existing && existing.src) {
+        const existingSrc = existing.src;
+        if (existingSrc === src || existingSrc.endsWith(src)) {
+          try {
+            existing.volume = clamp(volumeValue, 0, 1);
+            existing.playbackRate = playbackRate;
+          } catch (e) {}
+          stopRaf();
+          setStreamUrl(src);
+          if (autoplay && existing.paused) existing.play().catch(() => {});
+          return existing;
+        }
+      }
+
+      cleanupAudio();
+
+      const audio = new Audio(src);
+      if (isSameOrigin(src)) audio.crossOrigin = "anonymous";
+      audio.preload = "auto";
+      audio.volume = clamp(volumeValue, 0, 1);
+      audio.playbackRate = playbackRate;
+
+      setIsBuffering(true);
+
+      audio.onloadedmetadata = () =>
+        setDuration(isFinite(audio.duration) ? audio.duration : 0);
+      audio.ontimeupdate = () => setPosition(audio.currentTime);
+      audio.onended = () => {
+        if (repeatMode === "one") {
+          audio.currentTime = 0;
+          audio
+            .play()
+            .then(() => setIsPlaying(true))
+            .catch(() => setIsPlaying(false));
+        } else {
+          nextTrackRef.current?.(!miniVisibleRef.current);
+        }
+      };
+      audio.onplay = () => setIsPlaying(true);
+      audio.onpause = () => setIsPlaying(false);
+      audio.onerror = (ev) => {
+        console.warn("Audio error", ev);
+        setIsPlaying(false);
+        setIsBuffering(false);
+      };
+      audio.oncanplay = () => setIsBuffering(false);
+
+      audioRef.current = audio;
+      setStreamUrl(src);
+      stopRaf();
+
+      if (autoplay) {
+        audio
+          .play()
+          .then(() => {
+            setIsPlaying(true);
+            // if previously marked failed, remove from failed set
+            try {
+              playFailedForKeyRef.current.delete(keyForAudioSrc(src));
+            } catch (e) {}
+          })
+          .catch((err) => {
+            // classify the error (autoplay/NotAllowed or other)
+            console.warn("Audio play() failed:", err);
+
+            // mark as not playing but do NOT trigger an automatic reload
+            setIsPlaying(false);
+
+            // mark that this key failed to play so we don't retry automatically
+            try {
+              const key = keyForAudioSrc(src);
+              if (key) playFailedForKeyRef.current.add(key);
+            } catch (e) {}
+
+            // keep the audio element attached (so user can manually resume)
+          });
+      } else {
+        setIsPlaying(false);
+      }
+
+      return audio;
+    },
+    [cleanupAudio, playbackRate, volumeValue, stopRaf]
+  );
+
+  const fetchStreamForKey = useCallback(async (endpoint, key) => {
+    if (!endpoint || !key) return null;
+    const cached = cacheRef.current.get(key);
+    if (cached?.src) return cached.src;
+
+    if (inFlightRef.current[key]) {
+      return inFlightRef.current[key].promise;
+    }
+
+    const controller = new AbortController();
+    const promise = (async () => {
+      try {
+        const res = await fetch(endpoint, { signal: controller.signal });
+        if (!res.ok) throw new Error("fetch failed: " + res.status);
+        const data = await res.json();
+        const src = data?.stream_url ?? data?.streamUrl ?? null;
+        if (!src) throw new Error("no stream_url in backend response");
+        cacheRef.current.set(key, { src, ts: Date.now() });
+        return src;
+      } finally {
+        delete inFlightRef.current[key];
+      }
+    })();
+
+    inFlightRef.current[key] = { controller, promise };
+    return promise;
+  }, []);
+
+  const getStreamUrl = useCallback(
+    (song) => {
+      if (!song) return null;
+      if (streamBase) {
+        return `${streamBase}/api/stream/${encodeURIComponent(
+          song.id || song.webpage_url || ""
+        )}/`;
+      }
+      return null;
+    },
+    [streamBase]
+  );
+
+  const prefetchForIndex = useCallback(
+    async (idx) => {
+      const q = queueRef.current;
+      if (!Array.isArray(q) || idx < 0 || idx >= q.length) return;
+      const song = q[idx];
+      const key = songKeyFor(song);
+      if (!key) return;
+      if (cacheRef.current.has(key)) return;
+      const endpoint = getStreamUrl(song);
+      if (!endpoint) return;
+      try {
+        await fetchStreamForKey(endpoint, key);
+      } catch (err) {
+        if (err?.name !== "AbortError") console.warn("prefetch failed", err);
+      }
+    },
+    [fetchStreamForKey, getStreamUrl]
+  );
+
+  const loadStreamForIndex = useCallback(
+    async (idx, { autoplay = true } = {}) => {
+      const q = queueRef.current;
+      if (!Array.isArray(q) || idx < 0 || idx >= q.length) return null;
+      const song = q[idx];
+      const key = songKeyFor(song);
+      if (!key) return null;
+
+      // If we previously tried to play this key and it failed, don't auto-retry.
+      // If we have the cached src, attach it but DO NOT autoplay (let user gesture resume).
+      if (playFailedForKeyRef.current.has(key)) {
+        const cached = cacheRef.current.get(key);
+        if (cached?.src) {
+          setLoadingStream(false);
+          setIsBuffering(false);
+          // attach cached src but do not autoplay to avoid repeated failures
+          return createAndAttachAudio(cached.src, { autoplay: false });
+        }
+        // not cached and previously failed -> bail
+        setLoadingStream(false);
+        setIsBuffering(false);
+        return null;
+      }
+
+      const thisLoadId = ++loadIdRef.current;
+      const endpoint = getStreamUrl(song);
+      if (!endpoint) {
+        console.warn("no stream endpoint for song", song);
+        return null;
+      }
+
+      const cached = cacheRef.current.get(key);
+      if (cached?.src) {
+        if (thisLoadId !== loadIdRef.current) return null;
+        setLoadingStream(false);
+        const existing = audioRef.current;
+        if (
+          existing &&
+          (existing.src === cached.src || existing.src.endsWith(cached.src))
+        ) {
+          try {
+            existing.volume = clamp(volumeValue, 0, 1);
+            existing.playbackRate = playbackRate;
+          } catch (e) {}
+          if (autoplay && existing.paused) existing.play().catch(() => {});
+          return existing;
+        }
+        return createAndAttachAudio(cached.src, { autoplay });
+      }
+
+      if (currentLoadKeyRef.current && currentLoadKeyRef.current !== key) {
+        try {
+          const prev = inFlightRef.current[currentLoadKeyRef.current];
+          prev?.controller?.abort();
+        } catch (e) {
+          console.warn("failed to abort previous load", e);
+        }
+        currentLoadKeyRef.current = null;
+      }
+
+      currentLoadKeyRef.current = key;
+      setLoadingStream(true);
+      setIsBuffering(true);
+
+      try {
+        const src = await fetchStreamForKey(endpoint, key);
+
+        if (thisLoadId !== loadIdRef.current) {
+          setLoadingStream(false);
+          setIsBuffering(false);
+          return null;
+        }
+
+        const currentSelectedKey =
+          queueRef.current && currentIndexRef.current >= 0
+            ? songKeyFor(queueRef.current[currentIndexRef.current])
+            : null;
+        if (currentLoadKeyRef.current !== key && currentSelectedKey !== key) {
+          setLoadingStream(false);
+          setIsBuffering(false);
+          return null;
+        }
+
+        const audio = createAndAttachAudio(src, { autoplay });
+        setLoadingStream(false);
+        currentLoadKeyRef.current = null;
+
+        if (!shuffle && q.length > 1) {
+          const nextIdx =
+            idx + 1 < q.length ? idx + 1 : repeatMode === "all" ? 0 : null;
+          if (nextIdx !== null) prefetchForIndex(nextIdx);
+        }
+        return audio;
+      } catch (err) {
+        if (err?.name === "AbortError") {
+          /* aborted */
+        } else {
+          console.error("Error resolving stream:", err);
+        }
+        setLoadingStream(false);
+        setIsBuffering(false);
+        currentLoadKeyRef.current = null;
+        return null;
+      }
+    },
+    [
+      getStreamUrl,
+      createAndAttachAudio,
+      fetchStreamForKey,
+      prefetchForIndex,
+      shuffle,
+      repeatMode,
+      volumeValue,
+      playbackRate,
+    ]
+  );
+
+  const play = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) {
+      if (currentIndex >= 0)
+        loadStreamForIndex(currentIndex, { autoplay: true });
+      return;
+    }
+    a.play()
+      .then(() => setIsPlaying(true))
+      .catch(() => setIsPlaying(false));
+  }, [currentIndex, loadStreamForIndex]);
+
+  const pause = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    try {
+      a.pause();
+    } catch (e) {
+      console.warn(String(e));
+    }
+    setIsPlaying(false);
+  }, []);
+
+  const playPause = useCallback(() => {
+    if (isPlaying) pause();
+    else play();
+  }, [isPlaying, pause, play]);
+
+  const playIndex = useCallback(
+    async (idx) => {
+      const q = queueRef.current || [];
+      if (!Array.isArray(q) || q.length === 0) return;
+      if (idx < 0 || idx >= q.length) return;
+
+      setLoadingStream(true);
+      setIsBuffering(true);
+
+      cleanupAudio();
+      setCurrentIndex(idx);
+      setPosition(0);
+      setIsPlaying(true);
+
+      try {
+        await loadStreamForIndex(idx, { autoplay: true });
+      } catch (e) {
+        console.warn("Error loading stream in playIndex:", e);
+      }
+    },
+    [cleanupAudio, loadStreamForIndex]
+  );
+
   const nextTrack = useCallback(
     (shouldNavigate = false) => {
       cleanupAudio();
       setPosition(0);
-      setCurrentIndex((ci) => {
-        if (shuffle && queueRef.current.length > 1) {
-          let nextIdx;
-          do {
-            nextIdx = Math.floor(Math.random() * queueRef.current.length);
-          } while (nextIdx === ci);
-
-          if (shouldNavigate) {
-            router.push(
-              `/player/${queueRef.current[nextIdx]?.id}${
-                isEditor ? "?edit=true" : ""
-              }`
-            );
-          }
-          return nextIdx;
+      const len = queueRef.current.length;
+      const ci = currentIndexRef.current;
+      let nextIdx = null;
+      if (!len) {
+        setIsPlaying(false);
+        return;
+      }
+      if (shuffle && len > 1) {
+        do {
+          nextIdx = Math.floor(Math.random() * len);
+        } while (nextIdx === ci);
+      } else if (ci + 1 >= len) {
+        if (repeatMode === "all") {
+          nextIdx = 0;
+        } else {
+          setCurrentIndex(ci);
+          setIsPlaying(false);
+          return;
         }
-
-        if (ci + 1 >= queueRef.current.length) {
-          if (repeatMode === "all") {
-            if (shouldNavigate) {
-              router.push(
-                `/player/${queueRef.current[0]?.id}${
-                  isEditor ? "?edit=true" : ""
-                }`
-              );
-            }
-            return 0;
-          } else {
-            setIsPlaying(false);
-            return ci;
-          }
-        }
-
-        if (shouldNavigate) {
-          router.push(
-            `/player/${queueRef.current[ci + 1]?.id}${
-              isEditor ? "?edit=true" : ""
-            }`
-          );
-        }
-        return ci + 1;
-      });
+      } else {
+        nextIdx = ci + 1;
+      }
+      setCurrentIndex(nextIdx);
+      playIndex(nextIdx);
+      if (shouldNavigate)
+        router.push(
+          `/player/${queueRef.current[nextIdx]?.id}${
+            isEditor ? "?edit=true" : ""
+          }`
+        );
     },
-    [shuffle, repeatMode, router, isEditor]
+    [cleanupAudio, playIndex, shuffle, repeatMode, router, isEditor]
   );
-
-  // RAF simulation (only used when there is no real audio element)
-  const startRaf = useCallback(() => {
-    if (rafRef.current) return;
-    lastTimeRef.current = performance.now();
-    const tick = (now) => {
-      const last = lastTimeRef.current || now;
-      const dt = (now - last) / 1000;
-      lastTimeRef.current = now;
-
-      setPosition((p) => {
-        const nextPos = p + dt;
-        if (duration && nextPos >= duration) {
-          setTimeout(() => {
-            if (repeatMode === "one") {
-              setPosition(0);
-            } else {
-              nextTrack(!miniVisibleRef.current);
-            }
-          }, 0);
-          return duration;
-        }
-        return nextPos;
-      });
-
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-  }, [duration, nextTrack, repeatMode]);
-
-  const stopRaf = useCallback(() => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      lastTimeRef.current = null;
-    }
-  }, []);
 
   useEffect(() => {
-    // If we have a real audio element, let it update the position/time; stop RAF.
-    if (audioRef.current) {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      return;
-    }
-    // otherwise we could run the simulated RAF when isPlaying true - left commented for now
-    // if (isPlaying) startRaf(); else stopRaf();
-  }, [isPlaying, startRaf, stopRaf]);
-
-  /* --------- Controls --------- */
-  // in playIndex
-  const playIndex = useCallback(
-    (idx) => {
-      if (!Array.isArray(queue) || queue.length === 0) return;
-      if (idx < 0 || idx >= queue.length) return;
-
-      // user initiated -> stop current audio immediately
-      cleanupAudio();
-
-      setCurrentIndex(idx);
-      setPosition(0);
-      setIsPlaying(true);
-    },
-    [queue, cleanupAudio]
-  );
-
-  const playSong = useCallback((song, addToQueue = true) => {
-    if (!song) return;
-    if (addToQueue) {
-      setQueue((q) => {
-        const next = [...(q || [])];
-        const found = next.findIndex(
-          (t) =>
-            (t.webpage_url &&
-              song.webpage_url &&
-              t.webpage_url === song.webpage_url) ||
-            t.title === song.title
-        );
-        if (found >= 0) {
-          setCurrentIndex(found);
-        } else {
-          next.push(song);
-          if (next.length > 50) next.splice(0, next.length - 50);
-          setCurrentIndex(next.length - 1);
-        }
-        return next;
-      });
-    } else {
-      setQueue([song]);
-      setCurrentIndex(0);
-    }
-    setPosition(0);
-    setIsPlaying(true);
-  }, []);
+    nextTrackRef.current = nextTrack;
+  }, [nextTrack]);
 
   const prev = useCallback(() => {
     cleanupAudio();
     setPosition(0);
-    setCurrentIndex((ci) => Math.max(0, ci - 1));
-    setIsPlaying(true);
-  }, []);
+    const nextIdx = Math.max(0, currentIndexRef.current - 1);
+    setCurrentIndex(nextIdx);
+    playIndex(nextIdx);
+  }, [cleanupAudio, playIndex]);
 
-  const setPositionExternal = useCallback((sec) => setPosition(sec), []);
-  const setDurationExternal = useCallback((sec) => setDuration(sec), []);
+  const playSong = useCallback(
+    (song, addToQueue = true) => {
+      if (!song) return;
+      if (addToQueue) {
+        setQueue((q) => {
+          const next = [...(q || [])];
+          const found = next.findIndex(
+            (t) =>
+              (t.webpage_url &&
+                song.webpage_url &&
+                t.webpage_url === song.webpage_url) ||
+              t.title === song.title
+          );
+          if (found >= 0) {
+            setCurrentIndex(found);
+            playIndex(found);
+          } else {
+            next.push(song);
+            if (next.length > 50) next.splice(0, next.length - 50);
+            const newIdx = next.length - 1;
+            setCurrentIndex(newIdx);
+            playIndex(newIdx);
+          }
+          return next;
+        });
+      } else {
+        setQueue([song]);
+        setCurrentIndex(0);
+        playIndex(0);
+      }
+      setPosition(0);
+    },
+    [playIndex]
+  );
 
-  /* --------- Queue management (unchanged semantics) --------- */
   const setQueueFromSearchResults = useCallback(
     (results = [], startIndex = 0) => {
       const next = Array.isArray(results) ? results.slice(0, 50) : [];
@@ -353,25 +615,27 @@ export function PlayerProvider({
     });
   }, []);
 
-  const showMiniForIndex = useCallback((idx, shouldPlay = false) => {
-    if (!Array.isArray(queueRef.current) || queueRef.current.length === 0) {
-      setMiniVisible(false);
-      return;
-    }
-    if (typeof idx !== "number" || idx < 0 || idx >= queueRef.current.length) {
-      setMiniVisible(false);
-      return;
-    }
-    setCurrentIndex(idx);
-    setPosition(0);
-    setMiniVisible(true);
-    if (shouldPlay) setIsPlaying(true);
-  }, []);
-
-  const closeMini = useCallback((pause = false) => {
-    setMiniVisible(false);
-    if (pause) setIsPlaying(false);
-  }, []);
+  const showMiniForIndex = useCallback(
+    (idx, shouldPlay = false) => {
+      if (!Array.isArray(queueRef.current) || queueRef.current.length === 0) {
+        setMiniVisible(false);
+        return;
+      }
+      if (
+        typeof idx !== "number" ||
+        idx < 0 ||
+        idx >= queueRef.current.length
+      ) {
+        setMiniVisible(false);
+        return;
+      }
+      setCurrentIndex(idx);
+      setPosition(0);
+      setMiniVisible(true);
+      if (shouldPlay) playIndex(idx);
+    },
+    [playIndex]
+  );
 
   const sameSong = (a, b) => {
     if (!a || !b) return false;
@@ -379,6 +643,28 @@ export function PlayerProvider({
     if (a.id && b.id) return a.id === b.id;
     return a.title === b.title;
   };
+
+  const moveQueueItem = useCallback((fromIndex, toIndex) => {
+    setQueue((prev) => {
+      if (!Array.isArray(prev)) return prev || [];
+      const len = prev.length;
+      if (fromIndex < 0 || fromIndex >= len) return prev;
+      if (toIndex < 0) toIndex = 0;
+      if (toIndex >= len) toIndex = len - 1;
+      if (fromIndex === toIndex) return prev;
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, item);
+      setCurrentIndex((ci) => {
+        if (ci === fromIndex) return toIndex;
+        if (fromIndex < ci && toIndex >= ci) return Math.max(0, ci - 1);
+        if (fromIndex > ci && toIndex <= ci)
+          return Math.min(next.length - 1, ci + 1);
+        return ci;
+      });
+      return next;
+    });
+  }, []);
 
   const reorderQueue = useCallback(
     (newQueue = []) => {
@@ -392,9 +678,8 @@ export function PlayerProvider({
           return next;
         }
         const newIndex = next.findIndex((t) => sameSong(t, cur));
-        if (newIndex >= 0) {
-          setCurrentIndex(newIndex);
-        } else {
+        if (newIndex >= 0) setCurrentIndex(newIndex);
+        else {
           const idx = Math.max(0, Math.min(currentIndex, next.length - 1));
           setCurrentIndex(next.length ? idx : -1);
           if (!next.length) setIsPlaying(false);
@@ -405,356 +690,20 @@ export function PlayerProvider({
     [currentIndex]
   );
 
-  const moveQueueItem = useCallback((fromIndex, toIndex) => {
-    setQueue((prev) => {
-      if (!Array.isArray(prev)) return prev || [];
-      const len = prev.length;
-      if (fromIndex < 0 || fromIndex >= len) return prev;
-      if (toIndex < 0) toIndex = 0;
-      if (toIndex >= len) toIndex = len - 1;
-      if (fromIndex === toIndex) return prev;
-
-      const next = [...prev];
-      const [item] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, item);
-
-      setCurrentIndex((ci) => {
-        if (ci === fromIndex) return toIndex;
-        if (fromIndex < ci && toIndex >= ci) return Math.max(0, ci - 1);
-        if (fromIndex > ci && toIndex <= ci)
-          return Math.min(next.length - 1, ci + 1);
-        return ci;
-      });
-      return next;
-    });
-  }, []);
-
-  /* --------- Stream URL helper --------- */
-  const getStreamUrl = useCallback(
-    (song) => {
-      if (!song) return null;
-      if (streamBase) {
-        return `${streamBase}/api/stream/${encodeURIComponent(
-          song.id || song.webpage_url || ""
-        )}/`;
-      }
-      return null;
-    },
-    [streamBase]
-  );
-
-  const isSameOrigin = (url) => {
-    try {
-      const u = new URL(url, window.location.href);
-      return u.origin === window.location.origin;
-    } catch (e) {
-      return false;
-    }
-  };
-
-  /**
-   * createAndAttachAudio:
-   * - DOES NOT always call cleanupAudio; that is decided by the caller.
-   * - sets volume/playbackRate on newly created audio element using the current state
-   */
-  const createAndAttachAudio = useCallback(
-    (src, { autoplay = true } = {}) => {
-      if (!src) return null;
-
-      const existing = audioRef.current;
-      if (existing && existing.src) {
-        // browser .src may be absolute — compare endsWith or equality
-        const existingSrc = existing.src;
-        if (existingSrc === src || existingSrc.endsWith(src)) {
-          // reuse: just update volume/playbackRate and event handlers that might have changed
-          try {
-            existing.volume = Math.max(0, Math.min(1, volumeValue));
-            existing.playbackRate = playbackRate;
-          } catch (e) {
-            console.warn("Failed to update existing audio props", e);
-          }
-          // ensure RAF simulation is stopped if present
-          stopRaf?.();
-          setStreamUrl(src);
-          // autoplay if requested
-          if (autoplay && existing.paused) existing.play().catch(() => {});
-          return existing;
-        }
-      }
-
-      // new src -> create new element
-      cleanupAudio(); // remove old audio only when creating a new one
-
-      const audio = new Audio(src);
-      if (isSameOrigin(src)) audio.crossOrigin = "anonymous";
-      audio.preload = "auto";
-
-      audio.volume = Math.max(0, Math.min(1, volumeValue));
-      audio.playbackRate = playbackRate;
-
-      setIsBuffering(true);
-
-      audio.onloadedmetadata = () => {
-        setDuration(isFinite(audio.duration) ? audio.duration : 0);
-      };
-      audio.ontimeupdate = () => setPosition(audio.currentTime);
-      audio.onended = () => {
-        if (repeatMode === "one") {
-          audio.currentTime = 0;
-          audio.play().catch(() => {});
-          setIsPlaying(true);
-        } else {
-          nextTrack(!miniVisibleRef.current);
-        }
-      };
-      audio.onplay = () => setIsPlaying(true);
-      audio.onpause = () => setIsPlaying(false);
-      audio.onerror = (ev) => {
-        console.warn("Audio error", ev);
-        setIsPlaying(false);
-        setIsBuffering(false);
-      };
-      audio.oncanplay = () => setIsBuffering(false);
-
-      audioRef.current = audio;
-      setStreamUrl(src);
-
-      // stop RAF because we now have real audio
-      stopRaf?.();
-
-      if (autoplay) {
-        audio
-          .play()
-          .then(() => setIsPlaying(true))
-          .catch((err) => {
-            console.warn("Audio play() failed:", err);
-            setIsPlaying(false);
-          });
-      } else setIsPlaying(false);
-
-      return audio;
-    },
-    [cleanupAudio, nextTrack, repeatMode, playbackRate, volumeValue, stopRaf]
-  );
-
-  const fetchStreamForKey = useCallback(async (endpoint, key) => {
-    if (!endpoint || !key) return null;
-
-    // if we already cached, return quickly
-    const cached = cacheRef.current.get(key);
-    if (cached?.src) return cached.src;
-
-    // if a fetch is already in flight for this key, return its promise
-    if (inFlightRef.current[key]) {
-      return inFlightRef.current[key].promise;
-    }
-
-    const controller = new AbortController();
-    const promise = (async () => {
-      try {
-        const res = await fetch(endpoint, { signal: controller.signal });
-        if (!res.ok) throw new Error("fetch failed: " + res.status);
-        const data = await res.json();
-        const src = data?.stream_url ?? data?.streamUrl ?? null;
-        if (!src) throw new Error("no stream_url in backend response");
-        cacheRef.current.set(key, { src, ts: Date.now() });
-        return src;
-      } finally {
-        // cleanup inFlight entry regardless (so aborted/errored fetch won't be left hanging)
-        // small delay to ensure callers that are awaiting can finish reading inFlightRef if needed
-        delete inFlightRef.current[key];
-      }
-    })();
-
-    inFlightRef.current[key] = { controller, promise };
-    return promise;
-  }, []);
-
-  /* --------- Prefetch helper (caches result) --------- */
-
-  // Prefetch stream_url JSON and cache it (non-blocking)
-  const prefetchForIndex = useCallback(
-    async (idx) => {
-      const q = queueRef.current;
-      if (!Array.isArray(q) || idx < 0 || idx >= q.length) return;
-      const song = q[idx];
-      const key = songKeyFor(song);
-      if (!key) return;
-
-      if (cacheRef.current.has(key)) return; // already cached
-
-      const endpoint = getStreamUrl(song);
-      if (!endpoint) return;
-
-      try {
-        await fetchStreamForKey(endpoint, key); // will set cacheRef
-      } catch (err) {
-        // ignore prefetch errors
-        if (err?.name !== "AbortError") console.warn("prefetch failed", err);
-      }
-    },
-    [getStreamUrl, fetchStreamForKey]
-  );
-
-  /**
-   * loadStreamForIndex:
-   * - Stable: does not depend on `queue` variable; uses queueRef.current
-   * - Uses cache if present
-   * - If audioRef.current.src === src, avoid recreating and optionally play()
-   */
-  const loadStreamForIndex = useCallback(
-    async (idx, { autoplay = true } = {}) => {
-      const q = queueRef.current;
-      if (!Array.isArray(q) || idx < 0 || idx >= q.length) return null;
-      const song = q[idx];
-      const key = songKeyFor(song);
-      if (!key) return null;
-
-      const endpoint = getStreamUrl(song);
-      if (!endpoint) {
-        console.warn("no stream endpoint for song", song);
-        return null;
-      }
-
-      // If audio already loaded and same src, reuse (avoid recreate)
-      const cached = cacheRef.current.get(key);
-      if (cached?.src) {
-        setLoadingStream(false);
-        // If the existing audio already has this src, just reuse it
-        const existing = audioRef.current;
-        if (
-          existing &&
-          (existing.src === cached.src || existing.src.endsWith(cached.src))
-        ) {
-          try {
-            existing.volume = Math.max(0, Math.min(1, volumeValue));
-            existing.playbackRate = playbackRate;
-          } catch (e) {}
-          if (autoplay && existing.paused) existing.play().catch(() => {});
-          return existing;
-        }
-        // else create a new audio from cached src
-        return createAndAttachAudio(cached.src, { autoplay });
-      }
-
-      // Abort previous load for a different key (but don't abort a fetch for the same key)
-      if (currentLoadKeyRef.current && currentLoadKeyRef.current !== key) {
-        try {
-          const prev = inFlightRef.current[currentLoadKeyRef.current];
-          prev?.controller?.abort();
-        } catch (e) {
-          console.warn("failed to abort previous load", e);
-        }
-        currentLoadKeyRef.current = null;
-      }
-
-      // get (or wait for) fetch for this key
-      setLoadingStream(true);
-      setIsBuffering(true);
-      currentLoadKeyRef.current = key;
-
-      try {
-        const src = await fetchStreamForKey(endpoint, key); // reuse inFlight if present
-        // If currentLoadKey changed meanwhile, bail out
-        if (currentLoadKeyRef.current !== key) {
-          setLoadingStream(false);
-          setIsBuffering(false);
-          return null;
-        }
-
-        // attach audio
-        const audio = createAndAttachAudio(src, { autoplay });
-
-        setLoadingStream(false);
-        currentLoadKeyRef.current = null;
-
-        // optionally prefetch next (forward only for now)
-        if (!shuffle && q.length > 1) {
-          const nextIdx =
-            idx + 1 < q.length ? idx + 1 : repeatMode === "all" ? 0 : null;
-          if (nextIdx !== null) prefetchForIndex(nextIdx);
-        }
-
-        return audio;
-      } catch (err) {
-        if (err?.name === "AbortError") {
-          // expected if canceled
-        } else {
-          console.error("Error resolving stream:", err);
-        }
-        setLoadingStream(false);
-        setIsBuffering(false);
-        currentLoadKeyRef.current = null;
-        return null;
-      }
-    },
-    [
-      getStreamUrl,
-      createAndAttachAudio,
-      fetchStreamForKey,
-      prefetchForIndex,
-      shuffle,
-      repeatMode,
-      volumeValue,
-      playbackRate,
-    ]
-  );
-
-  // When currentIndex changes, load stream if the current track key changed.
-  useEffect(() => {
-    if (currentIndex < 0) return;
-
-    const currentSong = queueRef.current[currentIndex];
-    const key = songKeyFor(currentSong);
-
-    // if key same as previous and there's an audioRef (already loaded), do nothing
-    if (key && prevTrackKeyRef.current === key && audioRef.current) {
-      // ensure playing state if requested
-      if (isPlaying && audioRef.current.paused) {
-        audioRef.current.play().catch(() => {});
-      }
-      return;
-    }
-
-    prevTrackKeyRef.current = key;
-
-    // load and autoplay
-    loadStreamForIndex(currentIndex, { autoplay: true });
-
-    return () => {
-      // optional: keep the audio to allow gapless behavior; here we cleanup to avoid leaks
-      // cleanupAudio();
-    };
-  }, [currentIndex, loadStreamForIndex, isPlaying]);
-
-  // Play / Pause wrappers
-  const play = useCallback(() => {
-    const a = audioRef.current;
-    if (!a) {
-      if (currentIndex >= 0)
-        loadStreamForIndex(currentIndex, { autoplay: true });
-      return;
-    }
-    a.play()
-      .then(() => setIsPlaying(true))
-      .catch(() => setIsPlaying(false));
-  }, [currentIndex, loadStreamForIndex]);
-
-  const pause = useCallback(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    try {
-      a.pause();
-    } catch (e) {
-      console.warn(String(e));
-    }
+  const stop = useCallback(() => {
+    cleanupAudio();
+    setPosition(0);
     setIsPlaying(false);
-  }, []);
+    setCurrentIndex(-1);
+  }, [cleanupAudio]);
 
-  const playPause = useCallback(() => {
-    if (isPlaying) pause();
-    else play();
-  }, [isPlaying, pause, play]);
+  const closeMini = useCallback(
+    (pausePlayback = true) => {
+      setMiniVisible(false);
+      if (pausePlayback) pause();
+    },
+    [pause]
+  );
 
   const seek = useCallback(
     (toSec) => {
@@ -774,40 +723,41 @@ export function PlayerProvider({
     [duration]
   );
 
-  // VOLUME / PLAYBACK RATE helpers - update the existing audio element instead of recreating it
+  const setPositionExternal = useCallback((sec) => setPosition(sec), []);
+  const setDurationExternal = useCallback((sec) => setDuration(sec), []);
+
   const setVolumeValue = useCallback((val0to1) => {
-    const v = Math.max(0, Math.min(1, Number(val0to1) || 0));
+    const v = clamp(Number(val0to1) || 0, 0, 1);
     setVolumeValueState(v);
-    if (audioRef.current) {
+    if (audioRef.current)
       try {
         audioRef.current.volume = v;
       } catch (e) {
         console.warn("Failed to set volume on audio element", e);
       }
-    }
   }, []);
 
   const setPlaybackRate = useCallback((rate) => {
     const r = Number(rate) || 1;
     setPlaybackRateState(r);
-    if (audioRef.current) {
+    if (audioRef.current)
       try {
         audioRef.current.playbackRate = r;
       } catch (e) {
         console.warn("Failed to set playbackRate on audio element", e);
       }
-    }
   }, []);
 
-  // cleanup on unmount
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       try {
-        inflightControllerRef.current?.abort();
-      } catch (e) {
-        console.warn(String(e));
-      }
+        for (const k of Object.keys(inFlightRef.current || {})) {
+          try {
+            inFlightRef.current[k]?.controller?.abort();
+          } catch (e) {}
+        }
+      } catch (e) {}
       cleanupAudio();
     };
   }, [cleanupAudio]);
@@ -818,34 +768,28 @@ export function PlayerProvider({
     currentTrack,
     setCurrentIndex: safeSetCurrentIndex,
     isPlaying,
-    setIsPlaying,
     position,
     duration,
-
     playIndex,
     playSong,
     playPause,
     play,
     pause,
+    stop,
     next: nextTrack,
     prev,
     seek,
-
     setPosition: setPositionExternal,
     setDuration: setDurationExternal,
-
     setQueueFromSearchResults,
     removeFromQueue,
     setQueue: setQueueSafe,
-
     reorderQueue,
     moveQueueItem,
     getStreamUrl,
-
     miniVisible,
     showMiniForIndex,
     closeMini,
-
     shuffle,
     setShuffle,
     setRepeatMode,
@@ -855,17 +799,13 @@ export function PlayerProvider({
       setRepeatMode((prev) =>
         prev === "none" ? "all" : prev === "all" ? "one" : "none"
       ),
-
     isEditor,
     setIsEditor,
-
     streamUrl,
     loadingStream,
     setVolumeValue,
     setPlaybackRate,
     loadStreamForIndex,
-
-    // expose cache for debugging if you want
     _streamCache: () => Array.from(cacheRef.current.entries()),
     isBuffering,
   };

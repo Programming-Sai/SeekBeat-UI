@@ -1,5 +1,5 @@
 // app/player/[id].js
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -49,7 +49,7 @@ export default function PlayerPage() {
   const { id } = useLocalSearchParams();
   const { edit } = useLocalSearchParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const lastRequestedIndexRef = useRef(null);
   // const params = new URLSearchParams(searchParams);
 
   const loadQueueCommandIndex = () => {
@@ -135,7 +135,9 @@ export default function PlayerPage() {
     setIsEditor(newIsEditor);
 
     // if entering editor mode, pause; if leaving, resume (or your desired behaviour)
-    setIsPlaying(!newIsEditor);
+    if (newIsEditor) {
+      player.pause();
+    }
     // console.log("STREAMING CACHE: ", _streamCache());
   }, [edit, setIsEditor, setIsPlaying, _streamCache]);
 
@@ -216,23 +218,94 @@ export default function PlayerPage() {
   const found = foundIndex >= 0 ? flat[foundIndex] : null;
 
   // When foundIndex changes, set the current index in player
-  useEffect(() => {
-    if (foundIndex >= 0) {
-      setCurrentIndex?.(foundIndex);
-    }
-  }, [foundIndex, setCurrentIndex]);
+  // helper to get the song key from a queue item (same logic as context)
+  const keyForItem = (item) => item?.id ?? item?.webpage_url ?? null;
+
+  // small ref so we don't re-request same index while loading
+
+  // useEffect(() => {
+  //   if (foundIndex < 0) return;
+  //   if (!player || typeof player.playIndex !== "function") {
+  //     // fallback
+  //     setCurrentIndex?.(foundIndex);
+  //     return;
+  //   }
+
+  //   const item = queue?.[foundIndex] ?? null;
+  //   const key = item ? item.id ?? item.webpage_url ?? null : null;
+
+  //   // ✅ Only trust _streamCache for deciding if we already have a stream
+  //   const cachedArray = player._streamCache?.() ?? [];
+  //   const cached = key
+  //     ? cachedArray.some(([k, v]) => k === key && !!v?.src)
+  //     : false;
+
+  //   // If player is already at this index AND we have a cached stream, do nothing
+  //   if (player.currentIndex === foundIndex && cached) {
+  //     lastRequestedIndexRef.current = foundIndex;
+  //     return;
+  //   }
+
+  //   // If we already requested this index and it’s still loading, skip
+  //   if (lastRequestedIndexRef.current === foundIndex && player.loadingStream) {
+  //     return;
+  //   }
+
+  //   // Request once
+  //   lastRequestedIndexRef.current = foundIndex;
+  //   player.playIndex(foundIndex);
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [
+  //   foundIndex,
+  //   player?.playIndex,
+  //   player?.currentIndex,
+  //   player?.loadingStream,
+  //   queue,
+  // ]);
+
+  // // Auto-play when the current index changes
+  // const lastAutoPlayIndex = useRef(null);
+
+  // useEffect(() => {
+  //   if (!player) return;
+
+  //   if (
+  //     player.currentIndex != null &&
+  //     player.currentTrack &&
+  //     player.currentIndex !== lastAutoPlayIndex.current
+  //   ) {
+  //     lastAutoPlayIndex.current = player.currentIndex;
+
+  //     if (!player.isPlaying && !player.loadingStream) {
+  //       try {
+  //         player.playPause(true);
+  //       } catch (err) {
+  //         console.warn("Autoplay failed:", err);
+  //       }
+  //     }
+  //   }
+  // }, [player?.currentIndex, player?.currentTrack, player?.loadingStream]);
 
   // pick track from found or player
   const track = found || currentTrackSafe || null;
 
-  // duration preference: player.duration (live) or track.duration fallback
+  // pure derived value — no side effects inside render
   const trackDuration = useMemo(() => {
-    player?.setDuration(track?.duration);
     const n = Number(durationSafe ?? track?.duration ?? 0);
-    // console.log("Duration: ", durationSafe);
-
     return Number.isFinite(n) ? n : 0;
   }, [durationSafe, track?.duration]);
+
+  // sync the provider state from an effect (side-effect area)
+  useEffect(() => {
+    if (!player || !track) return;
+    // only set when a concrete duration is available (avoid no-op spam)
+    if (typeof track?.duration === "number") {
+      player.setDuration?.(track.duration);
+    } else if (typeof durationSafe === "number") {
+      player.setDuration?.(durationSafe);
+    }
+    // only run when track changes or when provider reference changes
+  }, [player, track, durationSafe]);
 
   // compute pct from player position (safe)
   const pctFromCtx = Math.max(
@@ -263,7 +336,7 @@ export default function PlayerPage() {
 
     if (newIsEditor) {
       // Add ?edit=true
-      router.push(`/player/${id}?edit=true`, undefined, { shallow: true });
+      router.push(`/player/${id}?edit=true`);
     } else {
       // Remove ?edit
       router.push(`/player/${id}`, undefined, { shallow: true });
@@ -429,7 +502,10 @@ export default function PlayerPage() {
       resizeMode="cover"
     >
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[
+          styles.scroll,
+          { background: HEXA(theme.background, 0.5), flex: 1 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.coverWrap, { position: "relative" }]}>
@@ -543,7 +619,7 @@ export default function PlayerPage() {
         </View>
 
         {!isEditor ? (
-          <Text style={[styles.title, { color: "white" }]} numberOfLines={2}>
+          <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
             {he.decode(track.title || "Unknown")}
           </Text>
         ) : (
@@ -575,7 +651,7 @@ export default function PlayerPage() {
             style={[
               styles.uploader,
               {
-                color: themeMode === "dark" ? theme.textSecondary : "white",
+                color: theme.textSecondary,
                 fontWeight: "bold",
               },
             ]}
@@ -879,12 +955,7 @@ export default function PlayerPage() {
         </View>
 
         <View style={styles.seekRow}>
-          <Text
-            style={[
-              styles.time,
-              { color: themeMode === "dark" ? theme.textSecondary : "white" },
-            ]}
-          >
+          <Text style={[styles.time, { color: theme.textSecondary }]}>
             {formatTime(
               isEditor
                 ? edits?.trim?.start_time || loopStart
@@ -992,20 +1063,12 @@ export default function PlayerPage() {
                 duration={trackDuration}
                 onSeek={(sec) => seek?.(sec)}
                 accent={theme.accent}
-                background={HEXA(
-                  themeMode === "dark" ? theme.textSecondary : "#fff",
-                  0.12
-                )}
+                background={HEXA(theme.textSecondary, 0.3)}
               />
             )}
           </View>
 
-          <Text
-            style={[
-              styles.time,
-              { color: themeMode === "dark" ? theme.textSecondary : "white" },
-            ]}
-          >
+          <Text style={[styles.time, { color: theme.textSecondary }]}>
             {formatTime(
               isEditor
                 ? edits?.trim?.end_time || loopEnd || trackDuration

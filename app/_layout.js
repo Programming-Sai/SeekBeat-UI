@@ -13,6 +13,7 @@ import Toast from "react-native-toast-message";
 import { MenuProvider } from "react-native-popup-menu";
 import MiniPlayer from "../components/MiniPlayer";
 import { PlayerProvider } from "../contexts/PlayerContext";
+import { Stack } from "expo-router";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
@@ -45,7 +46,10 @@ function LayoutContent() {
       <View style={{ flex: 1, flexDirection: "row" }}>
         <NavBar />
         <View style={{ flex: 1 }}>
-          <Slot />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Slot />
+          </Stack>
         </View>
         <MiniPlayer />
         <SideBar />

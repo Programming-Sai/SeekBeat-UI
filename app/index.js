@@ -61,7 +61,7 @@ export default function Home() {
     return (
       <ScrollView
         showsVerticalScrollIndicator={false}
-        style={[styles.container]}
+        style={[styles.container, { backgroundColor: theme.background }]}
       >
         <LoadingSkeleton viewMode={viewMode} displayType={displayType} />
       </ScrollView>
@@ -71,7 +71,19 @@ export default function Home() {
   // No results at all (initial empty state)
   if (!source) {
     return (
-      <View style={[styles.container, { alignItems: "center", marginTop: 40 }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.background },
+          {
+            alignItems: "center",
+            marginTop: 40,
+            flex: 1,
+            marginTop: "-10%",
+            paddingTop: "50%",
+          },
+        ]}
+      >
         <Text
           style={[
             {
@@ -91,7 +103,10 @@ export default function Home() {
   // If we have a source (normalized or lastSearch) — render it.
   // It should match the shape you expect (bulk vs single)
   return (
-    <ScrollView showsVerticalScrollIndicator={false} style={[styles.container]}>
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
       <View>
         {source.type === "bulk" ? (
           // bulk blocks: if lastSearch was saved it should have the same `blocks` structure

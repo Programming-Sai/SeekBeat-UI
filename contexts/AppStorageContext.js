@@ -102,8 +102,8 @@ export function AppStorageProvider({ children }) {
   }, []);
 
   // Remove persisted download and any transient status
-  const removeDownload = useCallback((idOrUrl) => {
-    const id = idFor(idOrUrl);
+  const removeDownload = useCallback((idOrItem) => {
+    const id = idFor(idOrItem);
     if (!id) return;
     setData((s) => ({
       ...s,

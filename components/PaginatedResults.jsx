@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, Image, StyleSheet } from "react-native";
 import { Link } from "expo-router";
 import he from "he";
@@ -29,7 +29,13 @@ export default function PaginatedResults({
 }) {
   const { theme, themeMode, accentKey, accentColors } = useTheme();
   const [page, setPage] = useState(1);
-  const { setQueueFromSearchResults, showMiniForIndex } = usePlayer();
+  const {
+    setQueueFromSearchResults,
+    showMiniForIndex,
+    isPlaying,
+    stop,
+    playIndex,
+  } = usePlayer();
   const { download } = useDownloader(); // default streamBase baked in or pass your base
   const { getDownloadStatus } = useAppStorage();
 
@@ -96,12 +102,30 @@ export default function PaginatedResults({
     }
   };
 
-  const onPlay = (idx) => {
-    idx = (page - 1) * pageSize + idx;
-    console.log("Current Page: ", idx);
-    setQueueFromSearchResults(songs, /*startIndex=*/ idx); // sets queue and currentIndex to idx
-    showMiniForIndex(idx, true); // opens the mini player but doesn't auto-play
-  };
+  const onPlay = useCallback(
+    (idx) => {
+      if (isPlaying) stop();
+      idx = (page - 1) * pageSize + idx;
+
+      // First, set the queue and index. Don't auto-play yet.
+      setQueueFromSearchResults(songs, /*startIndex=*/ idx);
+
+      // Then, explicitly tell the player to start playing the new song at the given index.
+      playIndex(idx);
+
+      showMiniForIndex(idx, true);
+    },
+    [
+      isPlaying,
+      stop,
+      page,
+      pageSize,
+      songs,
+      setQueueFromSearchResults,
+      playIndex,
+      showMiniForIndex,
+    ]
+  );
 
   return (
     <View style={[{ width: "100%" }]}>

@@ -8,10 +8,20 @@ import { useAppStorage } from "../contexts/AppStorageContext";
  * - edits: optional edits JSON to send in POST body
  */
 export function useDownloader(streamBase = "http://localhost:8000") {
-  const { addDownload, updateDownload, setDownloadStatus } = useAppStorage();
+  const { addDownload, updateDownload, setDownloadStatus, getLastSearch } =
+    useAppStorage();
+
+  const getQueueIndex = (id) => {
+    const last = getLastSearch()?.items;
+    const index = (last ?? []).findIndex(
+      (d) =>
+        (d && d?.id === id) || (d?.webpage_url && d?.webpage_url?.includes(id))
+    );
+    return index;
+  };
 
   const download = useCallback(
-    async (song, edits = {}) => {
+    async (song, queueIndex = null, edits = {}) => {
       if (!song?.id && !song?.webpage_url) throw new Error("missing video id");
       const id = song?.id ?? song?.webpage_url;
 
@@ -25,6 +35,7 @@ export function useDownloader(streamBase = "http://localhost:8000") {
         startedAt: Date.now(),
         finishedAt: null,
         error: null,
+        queueIndex: queueIndex ?? getQueueIndex(id),
         edits: edits || {},
       };
 
@@ -93,5 +104,5 @@ export function useDownloader(streamBase = "http://localhost:8000") {
     [addDownload, updateDownload, setDownloadStatus, streamBase]
   );
 
-  return { download };
+  return { download, getQueueIndex };
 }

@@ -10,7 +10,7 @@ import {
   Image,
   Alert,
 } from "react-native";
-import Clipboard from "@react-native-clipboard/clipboard"; // install if you don't have it
+import * as Clipboard from "expo-clipboard";
 import { useTheme } from "../contexts/ThemeContext";
 import { getPrimaryTextColor, HEXA } from "../lib/colors";
 import { HistoryIcon } from "./HistoryIcon";
@@ -21,12 +21,17 @@ import formatTime from "../lib/utils";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import { useSearch } from "../contexts/SearchContext";
 import { InlineMenu } from "./InlineMenu"; // <-- new
+import { useDownloader } from "../contexts/DownloaderContext";
+import { usePlayer } from "../contexts/PlayerContext";
 
 export const HomeSideBar = () => {
   const { theme, accentColors, accentKey } = useTheme();
-  const { data, removeSearchAt, removeDownload } = useAppStorage();
+  const { data, removeSearchAt, removeDownload, getLastSearch } =
+    useAppStorage();
   const { submitSearch } = useSearch();
+  const { getQueueIndex } = useDownloader();
   const [tab, setTab] = useState("history");
+  const { setQueueFromSearchResults, showMiniForIndex, queue } = usePlayer();
 
   // local state to reflect quick UI changes (delete). Replace with persistence call as needed.
   const [localHistory, setLocalHistory] = useState(data?.searchHistory ?? []);
@@ -158,7 +163,7 @@ export const HomeSideBar = () => {
 
   const copyItem = (term) => {
     try {
-      Clipboard.setString(term);
+      Clipboard.setStringAsync(term);
       // small feedback
       window.alert(`${term} copied to clipboard`);
     } catch (e) {
@@ -176,14 +181,25 @@ export const HomeSideBar = () => {
   };
 
   const playDownload = (download) => {
-    console.log(`Playing: ${download?.song?.title}`);
+    const idx = download?.queueIndex ?? getQueueIndex(download?.id);
+    console.log(
+      `Playing: ${download?.song?.title} at index: ${idx}, ${
+        getLastSearch()?.items?.length
+      }`
+    );
+
+    // idx = (page - 1) * pageSize + idx;
+    setQueueFromSearchResults([download?.song], /*startIndex=*/ 0); // sets queue and currentIndex to idx
+    showMiniForIndex(0, true); // opens the mini player but doesn't auto-play
     setOpenMenuIndex(null);
   };
+
+  // const onPlay = (idx) => {};
 
   const deleteDownload = (download) => {
     const confirmed = window.confirm(`Delete "${download?.song?.title}"?`);
     if (confirmed) {
-      removeDownload(download.webpage_url);
+      removeDownload(download?.id || download?.song?.id || download);
     }
     setOpenMenuIndex(null);
   };

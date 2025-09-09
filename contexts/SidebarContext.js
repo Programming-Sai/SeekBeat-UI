@@ -1,7 +1,10 @@
 // SidebarContext.jsx
 import React, { createContext, useContext, useState } from "react";
 
-const SidebarContext = createContext();
+const SidebarContext = createContext({
+  rightSidebarKey: null,
+  setRightSidebarKey: () => {},
+});
 
 export function SidebarProvider({ children }) {
   const [rightSidebarKey, setRightSidebarKey] = useState(null);
@@ -13,4 +16,10 @@ export function SidebarProvider({ children }) {
   );
 }
 
-export const useRightSidebar = () => useContext(SidebarContext);
+export const useRightSidebar = () => {
+  const ctx = useContext(SidebarContext);
+  if (!ctx) {
+    throw new Error("useRightSidebar must be used within a SidebarProvider");
+  }
+  return ctx;
+};
