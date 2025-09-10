@@ -319,6 +319,7 @@ export function PlayerProvider({ children, streamBase = null }) {
 
   const loadStreamForIndex = useCallback(
     async (idx, { autoplay = true } = {}) => {
+      // console.log("Song should have loaded by now.");
       const q = queueRef.current;
       if (!Array.isArray(q) || idx < 0 || idx >= q.length) return null;
       const song = q[idx];
@@ -464,6 +465,7 @@ export function PlayerProvider({ children, streamBase = null }) {
 
   const playIndex = useCallback(
     async (idx) => {
+      // console.log("Should be playing a song now.");
       const q = queueRef.current || [];
       if (!Array.isArray(q) || q.length === 0) return;
       if (idx < 0 || idx >= q.length) return;
@@ -808,6 +810,7 @@ export function PlayerProvider({ children, streamBase = null }) {
     loadStreamForIndex,
     _streamCache: () => Array.from(cacheRef.current.entries()),
     isBuffering,
+    cleanupAudio,
   };
 
   return (

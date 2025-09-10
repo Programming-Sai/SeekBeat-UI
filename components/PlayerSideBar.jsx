@@ -21,7 +21,10 @@ export const PlayerSideBar = ({ edit }) => {
     currentIndex,
     playIndex,
     reorderQueue,
+    setCurrentIndex,
     setQueue,
+    cleanupAudio,
+    setPosition,
   } = usePlayer();
   const { getLastSearch } = useAppStorage();
   const router = useRouter();
@@ -110,18 +113,25 @@ export const PlayerSideBar = ({ edit }) => {
     (typeof currentIndex === "number" && queue[currentIndex]?.id) || id;
 
   const renderItem = useCallback(
-    ({ item, drag, isActive, index }) => {
+    ({ item, drag, isActive, getIndex }) => {
+      const index = getIndex?.();
       const isPlaying = index === currentIndex;
       const isSelected = String(selectedId) === String(item?.id);
+      // console.log("Values Passed in: ", drag, isActive, index);
 
       return (
         <ScaleDecorator>
           <TouchableOpacity
             onPress={() => {
-              playIndex(index);
               router.push?.(
                 `/player/${item?.id ?? index}${isEditor ? "?edit=true" : ""}`
               );
+              // cleanupAudio();
+              // setPosition(0);
+              // setCurrentIndex(index);
+              console.log("Index to be played: ", index, currentIndex);
+              playIndex(index);
+              console.log("Index to be played: ", index, currentIndex);
             }}
             onLongPress={drag}
             disabled={isActive}
