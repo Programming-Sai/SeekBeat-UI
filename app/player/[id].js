@@ -46,8 +46,10 @@ import { useDownloader } from "../../contexts/DownloaderContext";
  * Full Player Page (fixed hook ordering)
  */
 export default function PlayerPage() {
-  const { id } = useLocalSearchParams();
-  const { edit } = useLocalSearchParams();
+  const { id, edit } = useLocalSearchParams();
+
+  // const { id } = useLocalSearchParams();
+  // const { edit } = useLocalSearchParams();
   const router = useRouter();
   const lastRequestedIndexRef = useRef(null);
   // const params = new URLSearchParams(searchParams);
@@ -139,7 +141,7 @@ export default function PlayerPage() {
       player.pause();
     }
     // console.log("STREAMING CACHE: ", _streamCache());
-  }, [edit, setIsEditor, setIsPlaying, _streamCache]);
+  }, [edit, setIsEditor]);
 
   const queueCommands = [
     {
@@ -223,68 +225,67 @@ export default function PlayerPage() {
 
   // small ref so we don't re-request same index while loading
 
+  // console.log("What is FoundIndex: ", id, edit, foundIndex);
+
+  // Robust URL -> player sync (avoids infinite loops)
   // useEffect(() => {
-  //   if (foundIndex < 0) return;
-  //   if (!player || typeof player.playIndex !== "function") {
-  //     // fallback
-  //     setCurrentIndex?.(foundIndex);
-  //     return;
-  //   }
+  //   try {
+  //     if (foundIndex < 0) return;
 
-  //   const item = queue?.[foundIndex] ?? null;
-  //   const key = item ? item.id ?? item.webpage_url ?? null : null;
+  //     // if player missing, set index only (no load)
+  //     if (!player || typeof player.playIndex !== "function") {
+  //       setCurrentIndex?.(foundIndex);
+  //       return;
+  //     }
 
-  //   // ✅ Only trust _streamCache for deciding if we already have a stream
-  //   const cachedArray = player._streamCache?.() ?? [];
-  //   const cached = key
-  //     ? cachedArray.some(([k, v]) => k === key && !!v?.src)
-  //     : false;
+  //     // get the item and itemKey for cache lookup
+  //     const item = Array.isArray(queue) ? queue[foundIndex] ?? null : null;
+  //     const itemKey = item ? item.id ?? item.webpage_url ?? null : null;
 
-  //   // If player is already at this index AND we have a cached stream, do nothing
-  //   if (player.currentIndex === foundIndex && cached) {
+  //     // take a snapshot of the stream cache *inside* the effect (don't use the function identity in deps)
+  //     const cacheSnapshot =
+  //       typeof player._streamCache === "function" ? player._streamCache() : [];
+  //     const cached = itemKey
+  //       ? cacheSnapshot.some(([k, v]) => k === itemKey && !!v?.src)
+  //       : false;
+
+  //     // Debug (remove or comment out after you verify behavior)
+  //     // console.log("URL-sync:", { foundIndex, currentIndex: player.currentIndex, loadingStream: player.loadingStream, cached, lastRequested: lastRequestedIndexRef.current });
+
+  //     // If player is already at the index and stream is ready -> nothing to do
+  //     if (
+  //       player.currentIndex === foundIndex &&
+  //       (cached || !player.loadingStream)
+  //     ) {
+  //       lastRequestedIndexRef.current = foundIndex;
+  //       return;
+  //     }
+
+  //     // If we've already requested this index and it's still loading -> skip
+  //     if (
+  //       lastRequestedIndexRef.current === foundIndex &&
+  //       player.loadingStream
+  //     ) {
+  //       return;
+  //     }
+
+  //     // mark and request once via canonical API
   //     lastRequestedIndexRef.current = foundIndex;
-  //     return;
+  //     player.playIndex(foundIndex);
+  //   } catch (err) {
+  //     console.error("Error in URL -> player sync effect:", err);
   //   }
 
-  //   // If we already requested this index and it’s still loading, skip
-  //   if (lastRequestedIndexRef.current === foundIndex && player.loadingStream) {
-  //     return;
-  //   }
-
-  //   // Request once
-  //   lastRequestedIndexRef.current = foundIndex;
-  //   player.playIndex(foundIndex);
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  //   // Keep deps minimal and stable. Do NOT include player._streamCache or other function values.
   // }, [
   //   foundIndex,
-  //   player?.playIndex,
+  //   // include queue length so effect runs when queue content changes
+  //   Array.isArray(queue) ? queue.length : 0,
+  //   // include the important player state primitives
   //   player?.currentIndex,
   //   player?.loadingStream,
-  //   queue,
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
   // ]);
-
-  // // Auto-play when the current index changes
-  // const lastAutoPlayIndex = useRef(null);
-
-  // useEffect(() => {
-  //   if (!player) return;
-
-  //   if (
-  //     player.currentIndex != null &&
-  //     player.currentTrack &&
-  //     player.currentIndex !== lastAutoPlayIndex.current
-  //   ) {
-  //     lastAutoPlayIndex.current = player.currentIndex;
-
-  //     if (!player.isPlaying && !player.loadingStream) {
-  //       try {
-  //         player.playPause(true);
-  //       } catch (err) {
-  //         console.warn("Autoplay failed:", err);
-  //       }
-  //     }
-  //   }
-  // }, [player?.currentIndex, player?.currentTrack, player?.loadingStream]);
 
   // pick track from found or player
   const track = found || currentTrackSafe || null;
@@ -331,6 +332,14 @@ export default function PlayerPage() {
     queueCommands[newIndex]?.func?.();
   };
 
+  useEffect(() => {
+    console.log("🔄 ID actually changed:", id);
+  }, [id]);
+
+  useEffect(() => {
+    console.log("🎯 FoundIndex recalculated:", foundIndex);
+  }, [foundIndex]);
+
   const handleEdit = () => {
     const newIsEditor = !isEditor;
 
@@ -341,6 +350,7 @@ export default function PlayerPage() {
       // Remove ?edit
       router.push(`/player/${id}`, undefined, { shallow: true });
     }
+    console.log("Pushing to this id: ", id);
 
     setIsEditor(newIsEditor);
   };
@@ -361,9 +371,9 @@ export default function PlayerPage() {
       metadata: {
         title: track?.title,
         artist: track?.uploader,
-        album: track?.uploader,
+        // album: track?.uploader,
         date: track?.upload_date,
-        genre: null,
+        // genre: "Good Shit",
         url: track?.webpage_url,
         thumbnail: track?.largest_thumbnail,
       },
@@ -394,6 +404,7 @@ export default function PlayerPage() {
   };
 
   const saveEdits = (edits) => {
+    console.log("Saving: ", edits);
     localStorage.setItem("@seekbeat:edits", JSON.stringify(edits));
   };
 
@@ -442,7 +453,11 @@ export default function PlayerPage() {
     });
 
     try {
-      const { filename } = await download(track, edits);
+      // console.log("Current Edits: ", edits);
+      // const { filename } = await download(track, null, {
+      //   speed: 0.5,
+      // });
+      const { filename } = await download(track, null, edits);
       Toast.show({
         type: "success",
         position: "top",
@@ -458,6 +473,7 @@ export default function PlayerPage() {
         text2: String(err),
         visibilityTime: 4000,
       });
+      console.warn(String(err));
     }
   }, [track, status, download]);
 
@@ -1133,14 +1149,14 @@ export default function PlayerPage() {
 
             <TouchableOpacity
               onPress={() => {
-                const nextIdx = computeNextIndexForUI();
-                if (nextIdx === null) return;
-                router.push(
-                  `/player/${queue[currentIndex + 1]?.id}${
-                    isEditor ? "?edit=true" : ""
-                  }`
-                );
-                next(false);
+                // const nextIdx = computeNextIndexForUI();
+                // if (nextIdx === null) return;
+                // router.push(
+                //   `/player/${queue[currentIndex + 1]?.id}${
+                //     isEditor ? "?edit=true" : ""
+                //   }`
+                // );
+                next(true);
               }}
               style={{
                 opacity: isEditor || computeNextIndexForUI() === null ? 0.5 : 1,

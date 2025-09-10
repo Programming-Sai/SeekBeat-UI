@@ -59,6 +59,11 @@ export function PlayerProvider({ children, streamBase = null }) {
     miniVisibleRef.current = miniVisible;
   }, [miniVisible]);
 
+  const repeatModeRef = useRef(repeatMode);
+  useEffect(() => {
+    repeatModeRef.current = repeatMode;
+  }, [repeatMode]);
+
   const cacheRef = useRef(new Map());
   const inFlightRef = useRef({});
   const currentLoadKeyRef = useRef(null);
@@ -200,16 +205,23 @@ export function PlayerProvider({ children, streamBase = null }) {
         setDuration(isFinite(audio.duration) ? audio.duration : 0);
       audio.ontimeupdate = () => setPosition(audio.currentTime);
       audio.onended = () => {
-        if (repeatMode === "one") {
-          audio.currentTime = 0;
-          audio
-            .play()
-            .then(() => setIsPlaying(true))
-            .catch(() => setIsPlaying(false));
+        if (repeatModeRef.current === "one") {
+          try {
+            audio.currentTime = 0;
+            audio
+              .play()
+              .then(() => setIsPlaying(true))
+              .catch(() => setIsPlaying(false));
+          } catch (e) {
+            // ignore play errors
+            console.log("Sorry and Error Occured: ", String(e));
+            setIsPlaying(false);
+          }
         } else {
           nextTrackRef.current?.(!miniVisibleRef.current);
         }
       };
+
       audio.onplay = () => setIsPlaying(true);
       audio.onpause = () => setIsPlaying(false);
       audio.onerror = (ev) => {
@@ -515,12 +527,14 @@ export function PlayerProvider({ children, streamBase = null }) {
       }
       setCurrentIndex(nextIdx);
       playIndex(nextIdx);
-      if (shouldNavigate)
+      if (shouldNavigate) {
         router.push(
           `/player/${queueRef.current[nextIdx]?.id}${
             isEditor ? "?edit=true" : ""
           }`
         );
+        console.log("Pushing to this id: ", queueRef.current[nextIdx]?.id);
+      }
     },
     [cleanupAudio, playIndex, shuffle, repeatMode, router, isEditor]
   );
