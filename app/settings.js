@@ -28,6 +28,9 @@ export default function Settings() {
     clearSearchHistory,
     viewMode,
     setViewMode,
+    clearDownloads,
+    downloadUsePlaybackSettings,
+    setDownloadUsePlaybackSettings,
   } = useAppStorage();
 
   const handleClear = () => {
@@ -57,6 +60,35 @@ export default function Settings() {
       }
     }
   };
+
+  const handleClearDownload = () => {
+    if (confirm("Permanently delete all download history?")) {
+      try {
+        clearDownloads();
+        // optionally show toast/snackbar
+        Toast.show({
+          type: "success",
+          position: "top",
+          text1: "Success",
+          text2: "Downloads Cleared",
+          text2Style: { fontSize: 16 },
+          visibilityTime: 4000,
+          autoHide: true,
+        });
+      } catch (e) {
+        Toast.show({
+          type: "error",
+          position: "top",
+          text1: "Error",
+          text2: String(e),
+          text2Style: { fontSize: 16 },
+          visibilityTime: 4000,
+          autoHide: true,
+        });
+      }
+    }
+  };
+
   useEffect(() => {
     setRightSidebarKey("settings");
     return () => setRightSidebarKey(null);
@@ -195,6 +227,76 @@ export default function Settings() {
               >
                 <Text style={[{ color: theme.text, fontWeight: "bold" }]}>
                   Clear History
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <Text style={[styles.heading, { color: theme.text }]}>
+          Downloads & Edits
+        </Text>
+        <View style={[styles.settingBox]}>
+          <View
+            style={[
+              styles.settingBoxContainer,
+              { border: `1px solid ${theme.textSecondary}`, padding: 20 },
+              { borderBottomWidth: 0 },
+            ]}
+          >
+            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
+              <Text style={[styles.settingHeading, { color: theme.text }]}>
+                Mirror Playback Speed/Volume
+              </Text>
+              <Text
+                style={[
+                  styles.settingSecondary,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                When enabled, Downloads automatically mirror the current speed
+                and volume outside the edit mode.
+              </Text>
+            </View>
+            <View style={styles.settingDescSet}>
+              <Switch
+                value={downloadUsePlaybackSettings}
+                setValue={(v) => setDownloadUsePlaybackSettings(v)}
+                theme={themeMode}
+                accent={theme.accent}
+                accentLight={accentColors[accentKey].light}
+                accentDark={accentColors[accentKey].dark}
+              />
+            </View>
+          </View>
+        </View>
+        <View style={[styles.settingBox]}>
+          <View
+            style={[
+              styles.settingBoxContainer,
+              { border: `1px solid ${theme.textSecondary}`, padding: 20 },
+            ]}
+          >
+            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
+              <Text style={[styles.settingHeading, { color: theme.text }]}>
+                Clear Download History
+              </Text>
+              <Text
+                style={[
+                  styles.settingSecondary,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Permanently delete all stored download history.
+              </Text>
+            </View>
+            <View style={styles.settingDescSet}>
+              <TouchableOpacity
+                onPress={handleClearDownload}
+                style={[styles.clearButton]}
+              >
+                <Text style={[{ color: theme.text, fontWeight: "bold" }]}>
+                  Clear Downloads
                 </Text>
               </TouchableOpacity>
             </View>

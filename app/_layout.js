@@ -15,6 +15,7 @@ import MiniPlayer from "../components/MiniPlayer";
 import { PlayerProvider } from "../contexts/PlayerContext";
 import { Stack } from "expo-router";
 import { Host } from "react-native-portalize";
+import ShortcutProvider from "../contexts/ShortCutContext";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
@@ -27,8 +28,10 @@ export default function Layout() {
             <MenuProvider>
               <SidebarProvider>
                 <SearchProvider>
-                  <LayoutContent />
-                  <Toast />
+                  <ShortcutProvider>
+                    <LayoutContent />
+                    <Toast />
+                  </ShortcutProvider>
                 </SearchProvider>
               </SidebarProvider>
             </MenuProvider>
