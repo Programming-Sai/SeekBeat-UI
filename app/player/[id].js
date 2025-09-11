@@ -640,8 +640,9 @@ export default function PlayerPage() {
         contentContainerStyle={[
           styles.scroll,
           {
-            background: HEXA(theme.background, 0.5),
-            flex: 2,
+            backgroundColor: HEXA(theme.background, 0.5),
+            // bac
+            // flex: 2,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -1270,7 +1271,6 @@ export default function PlayerPage() {
             <OpenIcon size={25} color={theme.text} />
           </Link>
         </View>
-        {/* <Text>{(isBuffering || loadingStream) && "Loading"}</Text> */}
       </ScrollView>
     </ImageBackground>
   );
@@ -1284,7 +1284,7 @@ const styles = StyleSheet.create({
   },
 
   background: { flex: 1, paddingTop: 60 },
-  scroll: { padding: 28, alignItems: "center", paddingBottom: 120 },
+  scroll: { paddin: 28, alignItems: "center", paddingBottom: 100 },
   headerRow: {
     width: "100%",
     flexDirection: "row",
