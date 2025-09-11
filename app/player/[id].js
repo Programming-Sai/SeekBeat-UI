@@ -41,6 +41,7 @@ import MultiSlider from "@ptomasroos/react-native-multi-slider";
 import { OpenIcon } from "../../components/OpenIcon";
 import Toast from "react-native-toast-message";
 import { useDownloader } from "../../contexts/DownloaderContext";
+import Thumb from "../../components/Thumb";
 
 /**
  * Full Player Page (fixed hook ordering)
@@ -418,6 +419,13 @@ export default function PlayerPage() {
     console.log("🔄 ID actually changed:", id);
   }, [id]);
 
+  const [thumbState, setThumbState] = useState({
+    left: 0,
+    size: 16,
+    color: "#1DB954",
+    panHandlers: {},
+  });
+
   useEffect(() => {
     console.log("🎯 FoundIndex recalculated:", foundIndex);
   }, [foundIndex]);
@@ -631,7 +639,10 @@ export default function PlayerPage() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { background: HEXA(theme.background, 0.5), flex: 1 },
+          {
+            background: HEXA(theme.background, 0.5),
+            flex: 2,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -666,8 +677,7 @@ export default function PlayerPage() {
                 </Text>
                 <Image
                   source={{
-                    uri: edits?.metadata
-                      ?.thumbnail /* || track?.largest_thumbnail */,
+                    uri: edits?.metadata?.thumbnail || track?.largest_thumbnail,
                   }}
                   style={[
                     styles.coverImage,
@@ -1010,14 +1020,42 @@ export default function PlayerPage() {
                   // border: "2px solid red",
                   flex: 1,
                   paddingHorizontal: 0,
+                  position: "relative",
+                  // paddingRight: -50,
                 }}
               >
+                <View
+                  style={[
+                    {
+                      position: "absolute",
+                      inset: 0,
+                      top: "18.5%",
+                      // zIndex: -1,
+                    },
+                  ]}
+                >
+                  <SeekBar
+                    progressPct={pctFromCtx}
+                    duration={trackDuration}
+                    onSeek={(sec) => seek?.(sec)}
+                    accent={theme.accent}
+                    background={HEXA(theme.textSecondary, 0.3)}
+                    width={multiSliderWidth}
+                    start={edits?.trim?.start_time || loopStart}
+                    end={edits?.trim?.end_time || loopEnd}
+                    thumbSize={20}
+                    setThumbState={setThumbState}
+                    splitThumb={true}
+                  />
+                </View>
+
                 {/* only render slider once we know a width */}
                 {multiSliderWidth > 0 && (
                   <MultiSlider
                     values={[
                       edits?.trim?.start_time || loopStart,
                       edits?.trim?.end_time || loopEnd,
+                      // loopEnd,
                     ]}
                     min={0}
                     max={track?.duration ?? 0}
@@ -1045,15 +1083,15 @@ export default function PlayerPage() {
                     sliderLength={multiSliderWidth}
                     // styling: do NOT set width: "100%" here — irrelevant
                     selectedStyle={{
-                      backgroundColor: theme.accent,
-                      height: 5,
+                      backgroundColor: HEXA(theme.accent, 0.1),
+                      height: 6,
                     }}
                     unselectedStyle={{
                       backgroundColor: HEXA(
                         themeMode === "dark" ? theme.textSecondary : "#fff",
-                        0.12
+                        0.3
                       ),
-                      height: 5,
+                      height: 6,
                     }}
                     trackStyle={{
                       height: 5,
@@ -1066,12 +1104,58 @@ export default function PlayerPage() {
                       width: 16,
                       height: 16,
                       borderRadius: 16,
+                      // zIndex: 200,
                     }}
                     allowOverlap={false}
                     snapped={false}
                     minMarkerOverlapDistance={16}
                   />
                 )}
+
+                {/* IMPORTANT: Overlay that *receives* pan handlers from SeekBar.
+      It must come AFTER MultiSlider so it can capture touches when needed,
+      but we use pointerEvents carefully so it doesn't block everything. */}
+                <View
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    top: "43.9%", // match SeekBar vertical placement
+                    height: 30, // same height as SeekBar container
+                    zIndex: -1, // above MultiSlider visually for handlers
+                  }}
+                  pointerEvents="box-none"
+                >
+                  {/* full-width invisible capture area — it will receive touches only where the inner view is present */}
+                  <View
+                    // Spread the handlers SeekBar exposed via setThumbState
+                    {...(thumbState?.panHandlers || {})}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      width: multiSliderWidth || "100%",
+                      // height: 100,
+                      height: 5,
+                      backgroundColor: "rgba(255,0,0,0)", // debug visual
+                    }}
+                    pointerEvents="auto" // this inner view will receive pointer events along the track
+                  />
+                </View>
+
+                <View
+                  style={{ position: "absolute", inset: 0, top: "5%" }}
+                  pointerEvents="box-none"
+                >
+                  <Thumb
+                    {...thumbState}
+                    currentValue={Math.round(
+                      isNaN(trackDuration) ? 0 : pctFromCtx * trackDuration
+                    )}
+                    textColor={theme.text}
+                    tooltipColor={"grey"}
+                    // tooltipColor={HEXA(theme.textSecondary, 0.3)}
+                  />
+                </View>
               </View>
             ) : (
               <SeekBar
@@ -1134,11 +1218,11 @@ export default function PlayerPage() {
                 styles.playBtn,
                 {
                   backgroundColor: theme.accent,
-                  opacity: isEditor ? 0.5 : 1,
-                  cursor: isEditor ? "not-allowed" : "pointer",
+                  // opacity: isEditor ? 0.5 : 1,
+                  // cursor: isEditor ? "not-allowed" : "pointer",
                 },
               ]}
-              disabled={isEditor}
+              // disabled={isEditor}
             >
               {isPlaying ? (
                 <PauseIcon color="#fff" size={30} />
