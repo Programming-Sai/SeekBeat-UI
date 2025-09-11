@@ -19,7 +19,7 @@ export default function Thumb({
       style={[
         {
           position: "absolute",
-          top: "45%",
+          top: "50%",
           transform: [{ translateY: -size / 2 }],
           zIndex: 99999,
         },
