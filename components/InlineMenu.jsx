@@ -9,7 +9,12 @@ import {
 import { Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 
-export const InlineMenu = ({ options = [], trigger, onClose }) => {
+export const InlineMenu = ({
+  options = [],
+  trigger,
+  onClose,
+  currentValue = "",
+}) => {
   const { theme } = useTheme();
 
   return (
@@ -27,7 +32,6 @@ export const InlineMenu = ({ options = [], trigger, onClose }) => {
         customStyles={{
           optionsContainer: {
             borderRadius: 8,
-            padding: 4,
             backgroundColor: theme.background,
             shadowColor: "#000",
             shadowOpacity: 0.15,
@@ -44,6 +48,15 @@ export const InlineMenu = ({ options = [], trigger, onClose }) => {
               opt.onPress?.();
               onClose?.();
             }}
+            style={[
+              {
+                backgroundColor:
+                  opt.label === currentValue
+                    ? theme.backgroundSecondary
+                    : "transparent",
+                borderRadius: 8,
+              },
+            ]}
           >
             <Text style={[styles.option, { color: theme.text }]}>
               {opt.label}

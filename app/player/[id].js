@@ -125,6 +125,8 @@ export default function PlayerPage() {
     loadingStream,
     isBuffering,
     setPlaybackRate,
+    volumeValue,
+    playbackRate,
     _streamCache,
   } = player;
 
@@ -364,10 +366,11 @@ export default function PlayerPage() {
   const potentialEdits = loadEdits();
 
   const [edits, setEdits] = useState(
-    (track?.webpage_url === potentialEdits?.webpage_url && potentialEdits) || {
-      speed: 1,
+    (track?.webpage_url === potentialEdits?.metadata?.url &&
+      potentialEdits) || {
+      speed: playbackRate,
       trim: { start_time: 0, end_time: track?.duration },
-      volume: 3.75,
+      volume: volumeValue,
       metadata: {
         title: track?.title,
         artist: track?.uploader,
@@ -435,11 +438,22 @@ export default function PlayerPage() {
   const { download } = useDownloader();
   const status = getDownloadStatus(track?.id);
 
+  useEffect(() => {
+    console.log(
+      "Edit S/V: ",
+      potentialEdits?.speed,
+      edits?.speed,
+      potentialEdits?.volume,
+      edits?.volume
+    );
+    console.log("Real S/V: ", playbackRate, volumeValue);
+  }, [edits]);
+
   const onDownload = useCallback(async () => {
     if (!track) return;
     const id = track?.id ?? track?.webpage_url;
 
-    // prevent duplicate clicks
+    // // prevent duplicate clicks
     if (status === "pending") return;
 
     // optional immediate toast
@@ -453,10 +467,6 @@ export default function PlayerPage() {
     });
 
     try {
-      // console.log("Current Edits: ", edits);
-      // const { filename } = await download(track, null, {
-      //   speed: 0.5,
-      // });
       const { filename } = await download(track, null, edits);
       Toast.show({
         type: "success",
@@ -475,7 +485,39 @@ export default function PlayerPage() {
       });
       console.warn(String(err));
     }
-  }, [track, status, download]);
+  }, [track, status, download, edits]);
+
+  // Helper: apply an edits patch only when allowed, merge & persist properly
+  const applyEditsIfAllowed = (patchOrUpdater) => {
+    // only apply if in editor mode OR user chose to have downloads follow playback settings
+    if (!isEditor && !appStorage?.downloadUsePlaybackSettings) return;
+
+    setEdits((prev) => {
+      // compute merged edits (support function or object)
+      const merged =
+        typeof patchOrUpdater === "function"
+          ? patchOrUpdater(prev)
+          : { ...prev, ...patchOrUpdater };
+
+      // ensure metadata exists and contains track url (so saved edits are associated with the track)
+      const mergedWithUrl = {
+        ...merged,
+        metadata: {
+          ...(merged.metadata || {}),
+          url: track?.webpage_url ?? merged?.metadata?.url ?? null,
+        },
+      };
+
+      // persist using your existing saver
+      try {
+        saveEdits(mergedWithUrl);
+      } catch (err) {
+        console.warn("saveEdits failed", err);
+      }
+
+      return mergedWithUrl;
+    });
+  };
 
   // now safe early return: we've already called hooks above
   if (!player) {
@@ -709,141 +751,68 @@ export default function PlayerPage() {
           >
             <InlineMenu
               trigger={<SpeedIcon size={25} color={theme.text} />}
+              currentValue={`${
+                appStorage?.downloadUsePlaybackSettings
+                  ? edits?.speed
+                  : isEditor
+                  ? edits?.speed
+                  : playbackRate
+              }x`}
               options={[
                 {
                   label: "0.25x",
                   onPress: () => {
                     setPlaybackRate(0.25);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          speed: 0.25,
-                          metadata: { ...prev.metadata },
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ speed: 0.25 });
                   },
                 },
                 {
                   label: "0.5x",
                   onPress: () => {
                     setPlaybackRate(0.5);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          speed: 0.5,
-                          metadata: { ...prev.metadata },
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ speed: 0.5 });
                   },
                 },
                 {
                   label: "0.75x",
                   onPress: () => {
                     setPlaybackRate(0.75);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          speed: 0.75,
-                          metadata: { ...prev.metadata },
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ speed: 0.75 });
                   },
                 },
                 {
                   label: "1x",
                   onPress: () => {
                     setPlaybackRate(1);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          speed: 1,
-                          metadata: { ...prev.metadata },
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ speed: 1 });
                   },
                 },
                 {
                   label: "1.25x",
                   onPress: () => {
                     setPlaybackRate(1.25);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          speed: 1.25,
-                          metadata: { ...prev.metadata },
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ speed: 1.25 });
                   },
                 },
                 {
                   label: "1.5x",
                   onPress: () => {
                     setPlaybackRate(1.5);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          speed: 1.5,
-                          metadata: { ...prev.metadata },
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ speed: 1.5 });
                   },
                 },
                 {
                   label: "1.75x",
                   onPress: () => {
                     setPlaybackRate(1.75);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          speed: 1.75,
-                          metadata: { ...prev.metadata },
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ speed: 1.75 });
                   },
                 },
                 {
                   label: "2x",
                   onPress: () => {
                     setPlaybackRate(2);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          speed: 2,
-                          metadata: { ...prev.metadata },
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ speed: 2 });
                   },
                 },
               ]}
@@ -884,85 +853,47 @@ export default function PlayerPage() {
           >
             <InlineMenu
               trigger={<VolumeIcon size={25} color={theme.text} />}
+              currentValue={`${displayPercentage(
+                appStorage?.downloadUsePlaybackSettings
+                  ? edits?.volume
+                  : isEditor
+                  ? edits?.volume
+                  : volumeValue
+              )}%`}
               options={[
                 {
                   label: `${displayPercentage(0)}%`,
                   onPress: () => {
                     setVolumeValue(0 / 5);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          volume: 0,
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ volume: 0 });
                   },
                 },
                 {
                   label: `${displayPercentage(1.25)}%`,
                   onPress: () => {
                     setVolumeValue(1.25 / 5);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          volume: 1.25,
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ volume: 1.25 });
                   },
                 },
                 {
                   label: `${displayPercentage(2.5)}%`,
                   onPress: () => {
                     setVolumeValue(2.5 / 5);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          volume: 2.5,
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ volume: 2.5 });
                   },
                 },
                 {
                   label: `${displayPercentage(3.75)}%`,
                   onPress: () => {
                     setVolumeValue(3.75 / 5);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          volume: 3.75,
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ volume: 3.75 });
                   },
                 },
                 {
                   label: `${displayPercentage(5)}%`,
                   onPress: () => {
                     setVolumeValue(5 / 5);
-                    if (isEditor) {
-                      setEdits((prev) => {
-                        const edit = {
-                          ...prev,
-                          volume: 5,
-                        };
-                        saveEdits(edit);
-                        return edit;
-                      });
-                    }
+                    applyEditsIfAllowed({ volume: 5 });
                   },
                 },
               ]}

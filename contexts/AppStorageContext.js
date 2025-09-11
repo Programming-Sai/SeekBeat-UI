@@ -24,6 +24,7 @@ export function AppStorageProvider({ children }) {
     saveSearchHistory: true,
     viewMode: "list",
     lastSearch: null,
+    downloadUsePlaybackSettings: false,
   };
 
   const [data, setData] = useState(defaultData);
@@ -282,6 +283,15 @@ export function AppStorageProvider({ children }) {
 
   const clearLastSearch = () => setData((s) => ({ ...s, lastSearch: null }));
 
+  const setDownloadUsePlaybackSettings = useCallback((enabled) => {
+    setData((s) => ({ ...s, downloadUsePlaybackSettings: !!enabled }));
+  }, []);
+
+  const getDownloadUsePlaybackSettings = useCallback(
+    () => !!data.downloadUsePlaybackSettings,
+    [data]
+  );
+
   return (
     <AppStorageContext.Provider
       value={{
@@ -322,6 +332,10 @@ export function AppStorageProvider({ children }) {
         setLastSearch,
         getLastSearch,
         clearLastSearch,
+
+        // download playback setting accessors
+        downloadUsePlaybackSettings: getDownloadUsePlaybackSettings(),
+        setDownloadUsePlaybackSettings,
       }}
     >
       {children}

@@ -33,7 +33,7 @@ export function PlayerProvider({ children, streamBase = null }) {
   const [streamUrl, setStreamUrl] = useState(null);
   const [loadingStream, setLoadingStream] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [volumeValue, setVolumeValueState] = useState(1);
+  const [volumeValue, setVolumeValueState] = useState(3.75);
   const [playbackRate, setPlaybackRateState] = useState(1);
 
   const rafRef = useRef(null);
@@ -821,6 +821,8 @@ export function PlayerProvider({ children, streamBase = null }) {
     loadingStream,
     setVolumeValue,
     setPlaybackRate,
+    volumeValue,
+    playbackRate,
     loadStreamForIndex,
     _streamCache: () => Array.from(cacheRef.current.entries()),
     isBuffering,
