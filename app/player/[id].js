@@ -518,17 +518,6 @@ export default function PlayerPage() {
   const { download } = useDownloader();
   const status = getDownloadStatus(track?.id);
 
-  useEffect(() => {
-    console.log(
-      "Edit S/V: ",
-      potentialEdits?.speed,
-      edits?.speed,
-      potentialEdits?.volume,
-      edits?.volume
-    );
-    console.log("Real S/V: ", playbackRate, volumeValue);
-  }, [edits]);
-
   const onDownload = useCallback(async () => {
     if (!track) return;
     const id = track?.id ?? track?.webpage_url;
