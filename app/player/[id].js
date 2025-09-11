@@ -229,65 +229,145 @@ export default function PlayerPage() {
 
   // console.log("What is FoundIndex: ", id, edit, foundIndex);
 
-  // Robust URL -> player sync (avoids infinite loops)
-  // useEffect(() => {
-  //   try {
-  //     if (foundIndex < 0) return;
+  // Refs to avoid repeated handling
+  const lastRequestedKeyRef = lastRequestedIndexRef; // existing
+  const lastHandledKeyRef = useRef(null);
+  const pendingIndexRef = useRef(null);
 
-  //     // if player missing, set index only (no load)
-  //     if (!player || typeof player.playIndex !== "function") {
-  //       setCurrentIndex?.(foundIndex);
-  //       return;
-  //     }
+  // Sync URL -> player (compute foundIndex inside the effect and run only when id or queue length changes)
+  useEffect(() => {
+    if (!id) return;
 
-  //     // get the item and itemKey for cache lookup
-  //     const item = Array.isArray(queue) ? queue[foundIndex] ?? null : null;
-  //     const itemKey = item ? item.id ?? item.webpage_url ?? null : null;
+    const q = Array.isArray(queue) ? queue : [];
+    const idx = q.findIndex(
+      (s) => s?.id === id || (s?.webpage_url && s.webpage_url.includes(id))
+    );
 
-  //     // take a snapshot of the stream cache *inside* the effect (don't use the function identity in deps)
-  //     const cacheSnapshot =
-  //       typeof player._streamCache === "function" ? player._streamCache() : [];
-  //     const cached = itemKey
-  //       ? cacheSnapshot.some(([k, v]) => k === itemKey && !!v?.src)
-  //       : false;
+    if (idx < 0) return;
 
-  //     // Debug (remove or comment out after you verify behavior)
-  //     // console.log("URL-sync:", { foundIndex, currentIndex: player.currentIndex, loadingStream: player.loadingStream, cached, lastRequested: lastRequestedIndexRef.current });
+    const item = q[idx] ?? null;
+    const foundKey = keyForItem(item) || id;
+    if (!foundKey) return;
 
-  //     // If player is already at the index and stream is ready -> nothing to do
-  //     if (
-  //       player.currentIndex === foundIndex &&
-  //       (cached || !player.loadingStream)
-  //     ) {
-  //       lastRequestedIndexRef.current = foundIndex;
-  //       return;
-  //     }
+    if (lastHandledKeyRef.current === foundKey) return;
 
-  //     // If we've already requested this index and it's still loading -> skip
-  //     if (
-  //       lastRequestedIndexRef.current === foundIndex &&
-  //       player.loadingStream
-  //     ) {
-  //       return;
-  //     }
+    // current playing key (if any)
+    const currentItem =
+      Array.isArray(queue) && typeof player?.currentIndex === "number"
+        ? queue[player.currentIndex] ?? null
+        : null;
+    const currentKey = keyForItem(currentItem);
 
-  //     // mark and request once via canonical API
-  //     lastRequestedIndexRef.current = foundIndex;
-  //     player.playIndex(foundIndex);
-  //   } catch (err) {
-  //     console.error("Error in URL -> player sync effect:", err);
-  //   }
+    if (currentKey === foundKey && !player?.loadingStream) {
+      lastRequestedKeyRef.current = foundKey;
+      lastHandledKeyRef.current = foundKey;
+      return;
+    }
 
-  //   // Keep deps minimal and stable. Do NOT include player._streamCache or other function values.
-  // }, [
-  //   foundIndex,
-  //   // include queue length so effect runs when queue content changes
-  //   Array.isArray(queue) ? queue.length : 0,
-  //   // include the important player state primitives
-  //   player?.currentIndex,
-  //   player?.loadingStream,
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // ]);
+    // Update UI index immediately
+    setCurrentIndex?.(idx);
+
+    // Mark requested key and set pending index
+    lastRequestedKeyRef.current = foundKey;
+    pendingIndexRef.current = idx;
+
+    // Ask player to prepare this index (don't force play)
+    (async () => {
+      try {
+        if (player && typeof player.playIndex === "function") {
+          await player.playIndex(idx);
+        }
+        // Loaded/prepared: clear pending; mark handled
+        pendingIndexRef.current = null;
+        lastHandledKeyRef.current = foundKey;
+      } catch (err) {
+        console.warn("URL->player sync: playIndex failed", err);
+        // avoid infinite retry loop — mark handled so effect won't keep reprocessing
+        pendingIndexRef.current = null;
+        lastHandledKeyRef.current = foundKey;
+      }
+    })();
+  }, [id, Array.isArray(queue) ? queue.length : 0]);
+
+  const handlePlayPress = async () => {
+    try {
+      // Determine the desired index to play:
+      // prefer the foundIndex (URL), fall back to currentIndex
+      const desiredIdx =
+        typeof foundIndex === "number" && foundIndex >= 0
+          ? foundIndex
+          : typeof currentIndex === "number"
+          ? currentIndex
+          : null;
+
+      // If nothing meaningful, just toggle
+      if (desiredIdx == null) {
+        playPause?.();
+        return;
+      }
+
+      // If player is already at that index and ready, just toggle play/pause
+      const currentItem =
+        Array.isArray(queue) && typeof player?.currentIndex === "number"
+          ? queue[player.currentIndex] ?? null
+          : null;
+      const currentKey = keyForItem(currentItem);
+      const desiredItem = Array.isArray(queue) ? queue[desiredIdx] : null;
+      const desiredKey = keyForItem(desiredItem);
+
+      // If the desired and current keys match and player not loading: toggle
+      if (currentKey === desiredKey && !player?.loadingStream) {
+        playPause?.();
+        return;
+      }
+
+      // If we have a pending prepare for the desired index, wait for it
+      if (pendingIndexRef.current === desiredIdx) {
+        // wait until pending clears (poll with small timeout)
+        const start = Date.now();
+        while (
+          pendingIndexRef.current === desiredIdx &&
+          Date.now() - start < 3000
+        ) {
+          // small sleep
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => setTimeout(r, 50));
+        }
+        // then toggle play (player should be ready)
+        playPause?.();
+        return;
+      }
+
+      // Otherwise, ensure the player prepares the desired index then play
+      lastRequestedKeyRef.current = desiredKey;
+      pendingIndexRef.current = desiredIdx;
+
+      if (player && typeof player.playIndex === "function") {
+        await player.playIndex(desiredIdx);
+      } else {
+        // Make sure context's current index reflects desired
+        setCurrentIndex?.(desiredIdx);
+      }
+      pendingIndexRef.current = null;
+
+      // Start playback (best-effort)
+      if (player && typeof player.play === "function") {
+        try {
+          await player.play();
+        } catch (e) {
+          // fallback: flip the isPlaying flag
+          setIsPlaying?.(true);
+        }
+      } else {
+        // If play() isn't available, toggle via playPause
+        playPause?.();
+      }
+    } catch (err) {
+      console.warn("handlePlayPress error", err);
+      // fallback to normal toggle
+      playPause?.();
+    }
+  };
 
   // pick track from found or player
   const track = found || currentTrackSafe || null;
@@ -1060,7 +1140,7 @@ export default function PlayerPage() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={playPause}
+              onPress={handlePlayPress}
               style={[
                 styles.playBtn,
                 {
