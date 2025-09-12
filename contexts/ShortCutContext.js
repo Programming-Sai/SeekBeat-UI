@@ -1,14 +1,21 @@
 // ShortcutProvider.js
-import { useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { shortcuts } from "../lib/shortcuts";
 import { usePlayer } from "./PlayerContext";
 import { useSearch } from "./SearchContext";
+import { useTheme } from "./ThemeContext";
+import ShortcutsModal from "../components/ShortcutsModal";
+
+const ShortcutContext = createContext();
+export const useShortcuts = () => useContext(ShortcutContext);
 
 export default function ShortcutProvider({ children }) {
   const router = useRouter();
   const player = usePlayer();
   const search = useSearch();
+  const theme = useTheme();
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const handleSpeedUpOrDown = (type = "") => {
     const speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -102,6 +109,8 @@ export default function ShortcutProvider({ children }) {
     toggleMute: () => handleMuteToggle(),
     toggleEditMode: () => toggleEditMode(),
     focusSearch: () => search?.focusSearch(),
+    openShortcuts: () => setShowShortcuts((prev) => !prev),
+    toggleTheme: () => theme?.toggleTheme(),
   };
 
   useEffect(() => {
@@ -138,5 +147,16 @@ export default function ShortcutProvider({ children }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [player, router.pathname, search?.focusSearch]);
 
-  return children;
+  return (
+    <ShortcutContext.Provider value={{ showShortcuts, setShowShortcuts }}>
+      {children}
+
+      {/* ✅ Your existing modal is rendered here */}
+      <ShortcutsModal
+        visible={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+        theme={theme?.theme}
+      />
+    </ShortcutContext.Provider>
+  );
 }

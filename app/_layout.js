@@ -16,6 +16,7 @@ import { PlayerProvider } from "../contexts/PlayerContext";
 import { Stack } from "expo-router";
 import { Host } from "react-native-portalize";
 import ShortcutProvider from "../contexts/ShortCutContext";
+import ShortcutsModal from "../components/ShortcutsModal";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 

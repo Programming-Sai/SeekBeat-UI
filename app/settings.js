@@ -13,6 +13,9 @@ import Switch from "../components/Switch";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import TabbedSwitch from "../components/TabbedSwitch";
 import Toast from "react-native-toast-message";
+import ShortCutsTable from "../components/ShortCutsTable";
+import { InfoIcon } from "../components/InfoIcon";
+import { useShortcuts } from "../contexts/ShortCutContext";
 
 export default function Settings() {
   const { setRightSidebarKey } = useRightSidebar();
@@ -21,7 +24,7 @@ export default function Settings() {
     key,
     base: shades.base,
   }));
-  const [isEnabled, setIsEnabled] = useState(true);
+  const { setShowShortcuts } = useShortcuts();
   const {
     saveSearchHistory,
     setSaveSearchHistory,
@@ -99,6 +102,7 @@ export default function Settings() {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
+      {/* <ShortCutsTable theme={theme} /> */}
       <View style={[styles.settingsContainer]}>
         <Text style={[styles.heading, { color: theme.text }]}>Appearnce</Text>
         <View style={[styles.settingBox]}>
@@ -298,6 +302,38 @@ export default function Settings() {
                 <Text style={[{ color: theme.text, fontWeight: "bold" }]}>
                   Clear Downloads
                 </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <Text style={[styles.heading, { color: theme.text }]}>
+          Keyboard Shortcuts
+        </Text>
+        <View style={[styles.settingBox]}>
+          <View
+            style={[
+              styles.settingBoxContainer,
+              { border: `1px solid ${theme.textSecondary}`, padding: 20 },
+              { borderBottomWidth: 1 },
+            ]}
+          >
+            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
+              <Text style={[styles.settingHeading, { color: theme.text }]}>
+                Open Keyboard Shortcuts.
+              </Text>
+              <Text
+                style={[
+                  styles.settingSecondary,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Opens the keyboard shortcut cheat sheet.
+              </Text>
+            </View>
+            <View style={styles.settingDescSet}>
+              <TouchableOpacity onPress={() => setShowShortcuts(true)}>
+                <InfoIcon size={50} color={theme.accent} />
               </TouchableOpacity>
             </View>
           </View>
