@@ -4,7 +4,11 @@ import { useTheme } from "../contexts/ThemeContext";
 import { HEXA } from "../lib/colors";
 import { View } from "react-native";
 
-export default function LoadingSkeleton({ viewMode, displayType }) {
+export default function LoadingSkeleton({
+  viewMode,
+  displayType,
+  tabletAndBelow,
+}) {
   const { theme, themeMode, accentKey, accentColors } = useTheme();
 
   return (
@@ -49,10 +53,19 @@ export default function LoadingSkeleton({ viewMode, displayType }) {
               : accentColors[accentKey].dark,
             0.3
           )}
-          width={displayType === "bulk" ? 800 : viewMode === "list" ? 800 : 250}
+          width={
+            displayType === "bulk"
+              ? tabletAndBelow
+                ? "100%"
+                : 800
+              : viewMode === "list"
+              ? tabletAndBelow
+                ? "100%"
+                : 800
+              : 250
+          }
           height={displayType === "bulk" ? 50 : viewMode === "list" ? 210 : 380}
           borderRadius={10}
-          //   borderRadius={20}
         />
       ))}
     </View>

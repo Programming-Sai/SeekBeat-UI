@@ -7,7 +7,7 @@ import DraggableFlatList, {
 import { useTheme } from "../contexts/ThemeContext";
 import { usePlayer } from "../contexts/PlayerContext";
 import he from "he";
-import formatTime from "../lib/utils";
+import formatTime, { timeAgo } from "../lib/utils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import { HEXA } from "../lib/colors";
@@ -162,7 +162,8 @@ export const PlayerSideBar = ({ edit }) => {
                 {he.decode(item?.title ?? "Unknown")}
               </Text>
               <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-                {formatTime(item?.duration ?? 0)} · {item?.uploader ?? ""}
+                {formatTime(item?.duration ?? 0)} ·{" "}
+                {timeAgo(item?.upload_date) ?? ""} · {item?.uploader ?? ""}
               </Text>
             </View>
 

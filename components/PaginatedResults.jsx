@@ -9,6 +9,7 @@ import { usePlayer } from "../contexts/PlayerContext";
 import { useDownloader } from "../contexts/DownloaderContext";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import Toast from "react-native-toast-message";
+import { useResponsive } from "../contexts/ResponsiveContext";
 
 /**
  * Props:
@@ -38,6 +39,8 @@ export default function PaginatedResults({
   } = usePlayer();
   const { download } = useDownloader(); // default streamBase baked in or pass your base
   const { getDownloadStatus } = useAppStorage();
+  const { isAtOrBelow } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
 
   // reset when songs array changes
   useEffect(() => {
@@ -157,6 +160,10 @@ export default function PaginatedResults({
                     style={[
                       styles?.thumbnailImage,
                       { backgroundColor: "transparent" },
+                      tabletAndBelow && {
+                        width: 100,
+                        height: 90,
+                      },
                     ]}
                   >
                     <Image
@@ -179,6 +186,7 @@ export default function PaginatedResults({
                                   accentColors[accentKey].dark
                                 ),
                         },
+                        tabletAndBelow && { fontSize: 13 },
                       ]}
                     >
                       {formatTime(song.duration)}
@@ -193,6 +201,7 @@ export default function PaginatedResults({
                                   accentColors[accentKey].dark
                                 ),
                         },
+                        tabletAndBelow && { fontSize: 13 },
                       ]}
                     >
                       ●
@@ -207,9 +216,10 @@ export default function PaginatedResults({
                                   accentColors[accentKey].dark
                                 ),
                         },
+                        tabletAndBelow && { fontSize: 13, width: 180 },
                       ]}
-                      //   numberOfLines={1}
-                      //   ellipsizeMode="tail"
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
                     >
                       {he.decode(song?.title ?? "")}
                     </Text>
@@ -228,6 +238,7 @@ export default function PaginatedResults({
                                   0.6
                                 ),
                         },
+                        tabletAndBelow && { fontSize: 13 },
                       ]}
                     >
                       {song.uploader} {"  "} ● {"  "}{" "}
@@ -248,7 +259,13 @@ export default function PaginatedResults({
                       ]}
                     >
                       <Pressable
-                        style={[styles?.button]}
+                        style={[
+                          styles?.button,
+                          {
+                            paddingVertical: tabletAndBelow ? 5 : 10,
+                            paddingHorizontal: tabletAndBelow ? 10 : 20,
+                          },
+                        ]}
                         onPress={() => onPlay(i)}
                       >
                         <Text
@@ -262,6 +279,7 @@ export default function PaginatedResults({
                                     ),
                               textAlign: "center",
                             },
+                            tabletAndBelow && { fontSize: 10 },
                           ]}
                         >
                           Play
@@ -282,7 +300,13 @@ export default function PaginatedResults({
                     >
                       <Pressable
                         onPress={() => onDownload(song)}
-                        style={[styles?.button]}
+                        style={[
+                          styles?.button,
+                          {
+                            paddingVertical: tabletAndBelow ? 5 : 10,
+                            paddingHorizontal: tabletAndBelow ? 10 : 20,
+                          },
+                        ]}
                         disabled={getDownloadStatus(song?.id) === "pending"}
                       >
                         <Text
@@ -296,6 +320,7 @@ export default function PaginatedResults({
                                     ),
                               textAlign: "center",
                             },
+                            tabletAndBelow && { fontSize: 10 },
                           ]}
                         >
                           {getDownloadStatus(song?.id) === "pending"

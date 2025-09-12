@@ -259,6 +259,7 @@ export default function BulkSearchInput({
 
             <TextInput
               ref={(r) => (refs.current[f.id] = r)}
+              type="search"
               value={f.value}
               placeholder={idx === 0 ? placeholder : secondaryPlaceHolder}
               placeholderTextColor={theme.textSecondary}
@@ -266,7 +267,16 @@ export default function BulkSearchInput({
               onSubmitEditing={() =>
                 idx === 0 ? handleSubmit(true) : handleFieldSubmitEditing(idx)
               }
-              returnKeyType="next"
+              onKeyPress={({ nativeEvent }) => {
+                // hardware keyboards and some soft keyboards emit key events
+                if (nativeEvent && nativeEvent.key === "Enter") {
+                  console.log("onKeyPress Enter", { idx });
+                  if (idx === 0) handleSubmit(true);
+                  else handleFieldSubmitEditing(idx);
+                }
+              }}
+              returnKeyType={idx === 0 ? "search" : "next"}
+              keyboardType={Platform.OS === "ios" ? "web-search" : "default"}
               blurOnSubmit={idx === 0}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}

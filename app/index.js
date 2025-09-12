@@ -8,12 +8,15 @@ import AccordionGroup from "../components/AccordionGroup";
 import { useSearch } from "../contexts/SearchContext";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import Toast from "react-native-toast-message";
+import { useResponsive } from "../contexts/ResponsiveContext";
 
 export default function Home() {
   const { setRightSidebarKey } = useRightSidebar();
   const { viewMode, getLastSearch, setLastSearch } = useAppStorage();
   const { normalized, isLoading, error } = useSearch();
   const { theme } = useTheme();
+  const { isAtOrBelow } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
 
   const lastSearch = getLastSearch();
   // Save the *normalized* result to storage when it becomes available.
@@ -61,9 +64,17 @@ export default function Home() {
     return (
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          flexGrow: 1,
+          backgroundColor: theme.background,
+        }}
         style={[styles.container, { backgroundColor: theme.background }]}
       >
-        <LoadingSkeleton viewMode={viewMode} displayType={displayType} />
+        <LoadingSkeleton
+          viewMode={viewMode}
+          displayType={displayType}
+          tabletAndBelow={tabletAndBelow}
+        />
       </ScrollView>
     );
   }
@@ -105,6 +116,7 @@ export default function Home() {
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
+      // contentContainerStyle={{ flex: 1, marginBottom: 100 }}
       style={[styles.container, { backgroundColor: theme.background }]}
     >
       <View>
@@ -137,6 +149,7 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     padding: 20,
     paddingVertical: 200,
     width: "100%",

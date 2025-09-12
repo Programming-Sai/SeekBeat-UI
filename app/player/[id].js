@@ -43,12 +43,15 @@ import Toast from "react-native-toast-message";
 import { useDownloader } from "../../contexts/DownloaderContext";
 import Thumb from "../../components/Thumb";
 import { MutedIcon } from "../../components/MutedIcon";
+import { useResponsive } from "../../contexts/ResponsiveContext";
 
 /**
  * Full Player Page (fixed hook ordering)
  */
 export default function PlayerPage() {
   const { id, edit } = useLocalSearchParams();
+  const { isAtOrBelow } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
 
   // const { id } = useLocalSearchParams();
   // const { edit } = useLocalSearchParams();
@@ -634,7 +637,10 @@ export default function PlayerPage() {
     <ImageBackground
       source={{ uri: track.largest_thumbnail || track.thumbnail || "" }}
       blurRadius={60}
-      style={[styles.background, { backgroundColor: theme.background }]}
+      style={[
+        styles.background,
+        { backgroundColor: theme.background, flex: 1 },
+      ]}
       resizeMode="cover"
     >
       <ScrollView
@@ -643,11 +649,22 @@ export default function PlayerPage() {
           {
             backgroundColor: HEXA(theme.background, 0.5),
             height: "100%",
+            paddingVertical: 100,
+            paddingBottom: 800,
           },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.coverWrap, { position: "relative" }]}>
+        <View
+          style={[
+            styles.coverWrap,
+            {
+              position: "relative",
+              width: tabletAndBelow ? 200 : 320,
+              height: tabletAndBelow ? 200 : 320,
+            },
+          ]}
+        >
           {!isEditor ? (
             // View Mode (just show image)
             <Image
@@ -682,11 +699,13 @@ export default function PlayerPage() {
                   }}
                   style={[
                     styles.coverImage,
-                    styles.coverWrap,
+                    // styles.coverWrap,
                     {
                       border: "1px solid",
                       borderColor: theme.accent,
                       marginTop: 0,
+                      width: tabletAndBelow ? 200 : 320,
+                      height: tabletAndBelow ? 200 : 320,
                     },
                   ]}
                 />
@@ -779,6 +798,7 @@ export default function PlayerPage() {
               {
                 color: theme.text,
                 backgroundColor: HEXA(theme.textSecondary, 0.4),
+                width: "90%",
               },
             ]}
             placeholderTextColor={theme.textSecondary}

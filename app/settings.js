@@ -16,6 +16,7 @@ import Toast from "react-native-toast-message";
 import ShortCutsTable from "../components/ShortCutsTable";
 import { InfoIcon } from "../components/InfoIcon";
 import { useShortcuts } from "../contexts/ShortCutContext";
+import { useResponsive } from "../contexts/ResponsiveContext";
 
 export default function Settings() {
   const { setRightSidebarKey } = useRightSidebar();
@@ -35,6 +36,8 @@ export default function Settings() {
     downloadUsePlaybackSettings,
     setDownloadUsePlaybackSettings,
   } = useAppStorage();
+  const { isAtOrBelow } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
 
   const handleClear = () => {
     if (confirm("Permanently delete all search history?")) {
@@ -109,17 +112,31 @@ export default function Settings() {
           <View
             style={[
               styles.settingBoxContainer,
+              tabletAndBelow && { flexDirection: "column" },
               { border: `1px solid ${theme.textSecondary}`, padding: 20 },
             ]}
           >
-            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
-              <Text style={[styles.settingHeading, { color: theme.text }]}>
+            <View
+              style={[
+                styles.settingDescSet,
+                { alignItems: "flex-start" },
+                tabletAndBelow && { width: "50%" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.settingHeading,
+                  { color: theme.text },
+                  tabletAndBelow && { textAlign: "center", width: "100%" },
+                ]}
+              >
                 Set Accent Color
               </Text>
               <Text
                 style={[
                   styles.settingSecondary,
                   { color: theme.textSecondary },
+                  tabletAndBelow && { textAlign: "center", width: "100%" },
                 ]}
               >
                 Pick the accent used across the app (buttons, highlights, and
@@ -127,7 +144,12 @@ export default function Settings() {
               </Text>
             </View>
             <View style={styles.settingDescSet}>
-              <ColorPicker colors={colors} setColor={setAccent} theme={theme} />
+              <ColorPicker
+                colors={colors}
+                setColor={setAccent}
+                theme={theme}
+                tabletAndBelow={tabletAndBelow}
+              />
             </View>
           </View>
         </View>
@@ -142,7 +164,13 @@ export default function Settings() {
               { border: `1px solid ${theme.textSecondary}`, padding: 20 },
             ]}
           >
-            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
+            <View
+              style={[
+                styles.settingDescSet,
+                { alignItems: "flex-start" },
+                tabletAndBelow && { width: "50%" },
+              ]}
+            >
               <Text style={[styles.settingHeading, { color: theme.text }]}>
                 Set Search Results Display View
               </Text>
@@ -179,7 +207,13 @@ export default function Settings() {
               { borderBottomWidth: 0 },
             ]}
           >
-            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
+            <View
+              style={[
+                styles.settingDescSet,
+                { alignItems: "flex-start" },
+                tabletAndBelow && { width: "50%" },
+              ]}
+            >
               <Text style={[styles.settingHeading, { color: theme.text }]}>
                 Save Search History
               </Text>
@@ -211,7 +245,13 @@ export default function Settings() {
               { border: `1px solid ${theme.textSecondary}`, padding: 20 },
             ]}
           >
-            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
+            <View
+              style={[
+                styles.settingDescSet,
+                { alignItems: "flex-start" },
+                tabletAndBelow && { width: "50%" },
+              ]}
+            >
               <Text style={[styles.settingHeading, { color: theme.text }]}>
                 Clear Search History
               </Text>
@@ -248,7 +288,13 @@ export default function Settings() {
               { borderBottomWidth: 0 },
             ]}
           >
-            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
+            <View
+              style={[
+                styles.settingDescSet,
+                { alignItems: "flex-start" },
+                tabletAndBelow && { width: "50%" },
+              ]}
+            >
               <Text style={[styles.settingHeading, { color: theme.text }]}>
                 Mirror Playback Speed/Volume
               </Text>
@@ -281,7 +327,13 @@ export default function Settings() {
               { border: `1px solid ${theme.textSecondary}`, padding: 20 },
             ]}
           >
-            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
+            <View
+              style={[
+                styles.settingDescSet,
+                { alignItems: "flex-start" },
+                tabletAndBelow && { width: "50%" },
+              ]}
+            >
               <Text style={[styles.settingHeading, { color: theme.text }]}>
                 Clear Download History
               </Text>
@@ -318,7 +370,13 @@ export default function Settings() {
               { borderBottomWidth: 1 },
             ]}
           >
-            <View style={[styles.settingDescSet, { alignItems: "flex-start" }]}>
+            <View
+              style={[
+                styles.settingDescSet,
+                { alignItems: "flex-start" },
+                tabletAndBelow && { width: "50%" },
+              ]}
+            >
               <Text style={[styles.settingHeading, { color: theme.text }]}>
                 Open Keyboard Shortcuts.
               </Text>
@@ -373,7 +431,8 @@ const styles = StyleSheet.create({
     display: "flex",
     justifyContent: "center",
     alignItems: "flex-end",
-    width: "fit-content",
+    // width: "50%",
+    // width: "fit-content",
   },
   settingHeading: {
     fontWeight: "500",

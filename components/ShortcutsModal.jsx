@@ -3,7 +3,12 @@ import { Modal, View, Text, StyleSheet, Pressable } from "react-native";
 import ShortCutsTable from "./ShortCutsTable";
 import { HEXA } from "../lib/colors";
 
-export default function ShortcutsModal({ visible, onClose, theme }) {
+export default function ShortcutsModal({
+  visible,
+  onClose,
+  theme,
+  tabletAndBelow,
+}) {
   console.log(theme.background);
   return (
     <Modal
@@ -15,7 +20,13 @@ export default function ShortcutsModal({ visible, onClose, theme }) {
       <View
         style={[styles.overlay, { backgroundColor: HEXA(theme?.text, 0.5) }]}
       >
-        <View style={[styles.modal, { backgroundColor: theme.background }]}>
+        <View
+          style={[
+            styles.modal,
+            { backgroundColor: theme.background },
+            tabletAndBelow && { transform: "scale(0.8)" },
+          ]}
+        >
           <ShortCutsTable theme={theme} onClose={onClose} />
         </View>
       </View>

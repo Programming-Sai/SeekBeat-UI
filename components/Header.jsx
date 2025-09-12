@@ -13,12 +13,14 @@ import { HEXA, RGBA } from "../lib/colors";
 import React, { useState, useRef } from "react";
 import Icon from "react-native-vector-icons/Ionicons";
 import BulkSearchInput from "./BulkSearchInput";
+import { useResponsive } from "../contexts/ResponsiveContext";
 
 export default function Header() {
   const { theme, toggleTheme, themeMode, accentColors, accentKey } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [hidden, setHidden] = useState(false);
-  const [focused, setFocused] = useState(false);
+  const { isAtOrBelow } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
 
   const onPress = () => {
     // Reset hidden to false, so element is on top at start
@@ -41,47 +43,53 @@ export default function Header() {
 
   return (
     <View
-      style={[styles.container, { backgroundColor: RGBA(theme.text, 0.1) }]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: RGBA(theme.text, 0.1),
+          paddingHorizontal: tabletAndBelow ? 10 : 20,
+          gap: 10,
+          height: tabletAndBelow ? 120 : 60,
+        },
+      ]}
     >
+      {
+        <View>
+          <Link href="/">
+            <Image
+              style={[
+                styles.image,
+                {
+                  tintColor:
+                    themeMode === "dark"
+                      ? accentColors[accentKey].light
+                      : accentColors[accentKey].dark,
+                },
+              ]}
+              source={require("../assets/icon.png")}
+            />
+          </Link>
+        </View>
+      }
       <View>
-        <Link href="/">
-          <Image
+        {tabletAndBelow ? (
+          <Text
             style={[
-              styles.image,
               {
-                tintColor:
-                  themeMode === "dark"
-                    ? accentColors[accentKey].light
-                    : accentColors[accentKey].dark,
+                color: theme.accent,
+                fontWeight: "bold",
+                fontStyle: "italic",
+                fontSize: 26,
               },
             ]}
-            source={require("../assets/icon.png")}
-          />
-        </Link>
-      </View>
-      <View>
-        {/* <TextInput
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          style={[
-            styles.searchInput,
-            {
-              color: theme.text,
-              backgroundColor: RGBA(theme.background, 1),
-              border: "1px solid " + RGBA(accentColors[accentKey].dark, 0.5),
-            },
-            focused && {
-              borderColor: accentColors[accentKey].dark, // your gold color
-              boxShadow: `0 0 6px ${accentColors[accentKey].dark}`, // glow effect
-              outlineWidth: 0,
-            },
-          ]}
-          placeholderTextColor={theme.textSecondary}
-          placeholder="Search ..."
-        /> */}
-        <View style={styles.searchInput}>
-          <BulkSearchInput placeholder="Search By Url, Title, Uploader...  " />
-        </View>
+          >
+            SeekBeat
+          </Text>
+        ) : (
+          <View style={styles.searchInput}>
+            <BulkSearchInput placeholder="Search By Url, Title, Uploader...  " />
+          </View>
+        )}
       </View>
       <View style={styles.themeToggleBox}>
         <Pressable
@@ -112,11 +120,26 @@ export default function Header() {
               right: 12,
               borderRadius: 100,
               transform: [{ scale: scaleAnim }],
-              zIndex: hidden ? -100 : 10,
+              zIndex: hidden ? -100 : 9999,
             },
           ]}
         />
       </View>
+      {tabletAndBelow && (
+        <View
+          style={[
+            styles.searchInput,
+            {
+              width: tabletAndBelow ? "100%" : "70vh",
+            },
+          ]}
+        >
+          <BulkSearchInput
+            placeholder="Search By Url, Title, Uploader...  "
+            maxFields={5}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -124,12 +147,10 @@ export default function Header() {
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    height: 60, // number, not string
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     flexDirection: "row",
-    paddingHorizontal: 20, // horizontal padding only
     position: "absolute", // works better than fixed for RN + web
     top: 0,
     left: 0,
@@ -138,6 +159,8 @@ const styles = StyleSheet.create({
     backdropFilter: "blur(10px)", // Glassmorphism blur (web only)
     borderBottomWidth: 0.5,
     borderBottomColor: "rgba(255, 255, 255, 0.2)",
+    flexWrap: "wrap",
+    padding: 10,
   },
   image: {
     width: 40,

@@ -6,6 +6,7 @@ import { usePlayer } from "./PlayerContext";
 import { useSearch } from "./SearchContext";
 import { useTheme } from "./ThemeContext";
 import ShortcutsModal from "../components/ShortcutsModal";
+import { useResponsive } from "./ResponsiveContext";
 
 const ShortcutContext = createContext();
 export const useShortcuts = () => useContext(ShortcutContext);
@@ -15,6 +16,8 @@ export default function ShortcutProvider({ children }) {
   const player = usePlayer();
   const search = useSearch();
   const theme = useTheme();
+  const { isAtOrBelow } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   const handleSpeedUpOrDown = (type = "") => {
@@ -156,6 +159,7 @@ export default function ShortcutProvider({ children }) {
         visible={showShortcuts}
         onClose={() => setShowShortcuts(false)}
         theme={theme?.theme}
+        tabletAndBelow={tabletAndBelow}
       />
     </ShortcutContext.Provider>
   );

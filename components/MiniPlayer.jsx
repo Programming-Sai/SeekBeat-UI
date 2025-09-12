@@ -27,6 +27,7 @@ import SeekBar from "./SeekBar";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import { useDownloader } from "../contexts/DownloaderContext";
 import Toast from "react-native-toast-message";
+import { useResponsive } from "../contexts/ResponsiveContext";
 
 /**
  * Interactive MiniPlayer with click + drag seek.
@@ -58,6 +59,8 @@ export default function MiniPlayer() {
     0,
     Math.min(1, (playedSofar || 0) / Math.max(1, duration))
   );
+  const { isAtOrBelow, isAtOrAbove } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
 
   // dragging state
   const [isDragging, setIsDragging] = useState(false);
@@ -108,6 +111,11 @@ export default function MiniPlayer() {
         {
           backgroundColor: theme.backgroundSecondary,
           borderTopColor: theme.accent,
+        },
+        tabletAndBelow && {
+          bottom: "9.5%",
+          width: "100%",
+          left: 0,
         },
       ]}
       accessibilityRole="complementary"
@@ -261,12 +269,12 @@ export default function MiniPlayer() {
 
 const styles = StyleSheet.create({
   container: {
-    position: "fixed",
+    position: "absolute",
     bottom: 0,
     left: "16%",
     right: "26%",
     height: 100,
-    zIndex: 9999,
+    zIndex: 99,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderTopWidth: 1,

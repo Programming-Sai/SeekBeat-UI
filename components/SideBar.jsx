@@ -1,16 +1,25 @@
 // components/SideBar.jsx
-import React from "react";
+import React, { Children, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, View, Text } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { useRightSidebar } from "../contexts/SidebarContext";
 import { HomeSideBar } from "./HomeSideBar";
 import { PlayerSideBar } from "./PlayerSideBar";
-// import LibrarySidebar from "./sidebar/LibrarySidebar";
-// import SettingsSidebar from "./sidebar/SettingsSidebar";
+import { useResponsive } from "../contexts/ResponsiveContext";
+import BottomSheet from "./BottomSheetModal";
+import { useAppStorage } from "../contexts/AppStorageContext";
 
 export default function SideBar() {
   const { rightSidebarKey } = useRightSidebar();
   const { theme } = useTheme();
+  const { isAtOrBelow } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
+  const {
+    getSheetTab,
+    setSheetTab,
+    setMobileSheetVisible,
+    getMobileSheetVisible,
+  } = useAppStorage();
 
   const sidebarComponents = {
     library: () => (
@@ -27,10 +36,12 @@ export default function SideBar() {
         </Text>
       </View>
     ),
-    home: () => <HomeSideBar />,
+    home: () => <HomeSideBar tab={getSheetTab?.()} setTab={setSheetTab} />,
     player: () => <PlayerSideBar />,
     playerEdit: () => <PlayerSideBar edit={true} />,
   };
+
+  // const [sheetVisible, setSheetVisible] = useState(true);
 
   const SidebarComponent = rightSidebarKey
     ? sidebarComponents[rightSidebarKey]
@@ -38,9 +49,22 @@ export default function SideBar() {
 
   if (rightSidebarKey === "settings") return null;
 
-  return (
+  return tabletAndBelow ? (
+    <BottomSheet
+      theme={theme}
+      visible={getMobileSheetVisible?.()}
+      onClose={() => setMobileSheetVisible?.(false)}
+      snapPoints={["90%"]}
+    >
+      {SidebarComponent && <SidebarComponent />}
+    </BottomSheet>
+  ) : (
+    // </View>
     <View
-      style={[styles.container, { backgroundColor: theme.backgroundSecondary }]}
+      style={[
+        tabletAndBelow ? styles.mobileContainer : styles.container,
+        { backgroundColor: theme.backgroundSecondary },
+      ]}
     >
       {SidebarComponent && <SidebarComponent />}
     </View>
@@ -56,4 +80,5 @@ const styles = StyleSheet.create({
     paddingTop: 30,
     position: "relative",
   },
+  resContainer: {},
 });

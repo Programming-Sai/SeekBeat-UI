@@ -16,30 +16,39 @@ import { PlayerProvider } from "../contexts/PlayerContext";
 import { Stack } from "expo-router";
 import { Host } from "react-native-portalize";
 import ShortcutProvider from "../contexts/ShortCutContext";
-import ShortcutsModal from "../components/ShortcutsModal";
+import "react-native-gesture-handler";
+import { ResponsiveProvider } from "../contexts/ResponsiveContext";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
 export default function Layout() {
   return (
-    <Host>
-      <ThemeProvider>
-        <AppStorageProvider>
-          <PlayerProvider streamBase={API_BASE}>
-            <MenuProvider>
-              <SidebarProvider>
-                <SearchProvider>
-                  <ShortcutProvider>
-                    <LayoutContent />
-                    <Toast />
-                  </ShortcutProvider>
-                </SearchProvider>
-              </SidebarProvider>
-            </MenuProvider>
-          </PlayerProvider>
-        </AppStorageProvider>
-      </ThemeProvider>
-    </Host>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ResponsiveProvider>
+          <Host>
+            <ThemeProvider>
+              <AppStorageProvider>
+                <PlayerProvider streamBase={API_BASE}>
+                  <MenuProvider>
+                    <SidebarProvider>
+                      <SearchProvider>
+                        <ShortcutProvider>
+                          <LayoutContent />
+                          <Toast />
+                        </ShortcutProvider>
+                      </SearchProvider>
+                    </SidebarProvider>
+                  </MenuProvider>
+                </PlayerProvider>
+              </AppStorageProvider>
+            </ThemeProvider>
+          </Host>
+        </ResponsiveProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

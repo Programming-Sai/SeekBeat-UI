@@ -25,7 +25,7 @@ import { InlineMenu } from "./InlineMenu"; // <-- new
 import { useDownloader } from "../contexts/DownloaderContext";
 import { usePlayer } from "../contexts/PlayerContext";
 
-export const HomeSideBar = () => {
+export const HomeSideBar = ({ tab, setTab }) => {
   const { theme, accentColors, accentKey } = useTheme();
   const {
     data,
@@ -36,7 +36,7 @@ export const HomeSideBar = () => {
   } = useAppStorage();
   const { submitSearch } = useSearch();
   const { getQueueIndex } = useDownloader();
-  const [tab, setTab] = useState("history");
+  // const [tab, setTab] = useState("history");
   const { setQueueFromSearchResults, showMiniForIndex } = usePlayer();
 
   // local state to reflect quick UI changes (delete). Replace with persistence call as needed.
@@ -146,7 +146,7 @@ export const HomeSideBar = () => {
           </Text>
         </Pressable>
       </View>
-      <ScrollView
+      <View
         showsVerticalScrollIndicator={false}
         style={[styles.tabContentContainer, {}]}
       >
@@ -293,7 +293,7 @@ export const HomeSideBar = () => {
             </Text>
           </View>
         )}
-      </ScrollView>
+      </View>
     </View>
   );
 };
@@ -329,6 +329,10 @@ const styles = StyleSheet.create({
   tabContentContainer: {
     width: "100%",
     paddingBottom: 50,
+    // height: "-110%",
+    // marginVertical: "1000",
+    // backgroundColor: "red",
+    // height: 1000,
   },
   historyItemBox: {
     display: "flex",

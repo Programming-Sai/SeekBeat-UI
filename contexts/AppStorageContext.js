@@ -15,13 +15,16 @@ const AppStorageContext = createContext(null);
 
 export function AppStorageProvider({ children }) {
   const [isReady, setReady] = useState(false);
+  const [mobileSheetVisible, setMobileSheetVisible] = useState(false);
 
   // default shape
   const defaultData = {
     downloads: [], // array of { id, webpage_url, status, filename, startedAt, finishedAt, error, ... }
     searchHistory: [],
-    playlists: {},
     saveSearchHistory: true,
+    playlists: {},
+    mobileSheeVisible: false,
+    sheetTab: "history",
     viewMode: "list",
     lastSearch: null,
     downloadUsePlaybackSettings: false,
@@ -287,6 +290,10 @@ export function AppStorageProvider({ children }) {
     setData((s) => ({ ...s, downloadUsePlaybackSettings: !!enabled }));
   }, []);
 
+  const getSheetTab = () => data.sheetTab;
+
+  const setSheetTab = (tab) => setData((s) => ({ ...s, sheetTab: tab }));
+
   const getDownloadUsePlaybackSettings = useCallback(
     () => !!data.downloadUsePlaybackSettings,
     [data]
@@ -336,6 +343,13 @@ export function AppStorageProvider({ children }) {
         // download playback setting accessors
         downloadUsePlaybackSettings: getDownloadUsePlaybackSettings(),
         setDownloadUsePlaybackSettings,
+
+        getSheetTab,
+        getMobileSheetVisible: () => {
+          return mobileSheetVisible;
+        },
+        setSheetTab,
+        setMobileSheetVisible,
       }}
     >
       {children}

@@ -1,14 +1,37 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-export default function ColorPicker({ colors, setColor, theme }) {
+export default function ColorPicker({
+  colors,
+  setColor,
+  theme,
+  tabletAndBelow,
+}) {
   // console.log(colors);
 
   return (
-    <View style={[styles.container]}>
+    <View
+      style={[
+        styles.container,
+        {
+          flexDirection: tabletAndBelow ? "column" : "row",
+          width: tabletAndBelow ? "auto" : "80%",
+          marginVertical: tabletAndBelow ? 20 : 0,
+          gap: tabletAndBelow ? 50 : "auto",
+        },
+      ]}
+    >
       <View style={[styles.currentColor, { backgroundColor: theme.accent }]} />
 
-      <View style={[styles.colorsContainer]}>
+      <View
+        style={[
+          styles.colorsContainer,
+          {
+            width: tabletAndBelow ? "100%" : "40%",
+            justifyContent: tabletAndBelow ? "center" : "flex-start",
+          },
+        ]}
+      >
         {colors.map((c) => (
           <Pressable
             title={c.key}
@@ -25,17 +48,14 @@ export default function ColorPicker({ colors, setColor, theme }) {
 
 const styles = StyleSheet.create({
   container: {
-    width: "80%",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    flexDirection: "row",
   },
   colorsContainer: {
     width: "40%",
     height: "fit-content",
     display: "flex",
-    justifyContent: "flex-start",
     alignItems: "flex-start",
     flexDirection: "row",
     flexWrap: "wrap",

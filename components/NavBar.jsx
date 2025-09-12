@@ -13,31 +13,66 @@ import { LanIcon } from "./LanIcon";
 import { LanBoldIcon } from "./LanBoldIcon";
 import { SettingsIcon } from "./SettingsIcon";
 import { SettingsBoldIcon } from "./SettingsBoldIcon";
+import { useResponsive } from "../contexts/ResponsiveContext";
+import { DownloadIcon } from "./DownloadIcon";
+import { HistoryIcon } from "./HistoryIcon";
+import { useAppStorage } from "../contexts/AppStorageContext";
+import { PlayListIcon } from "./PlayListIcon";
 
 export default function NavBar() {
   const { theme, themeMode, accentColors, accentKey } = useTheme();
   const pathname = usePathname();
+  const { setSheetTab, setMobileSheetVisible } = useAppStorage();
+  const { isAtOrBelow, isAtOrAbove } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
+  const showMobileSheets = tabletAndBelow && pathname === "/";
 
   const pages = [
     { pageName: "Home", pageLink: "/", Icon: HomeIcon, IconBold: HomeBoldIcon },
-    // {
-    //   pageName: "Local Library",
-    //   pageLink: "/library",
-    //   Icon: LibraryIcon,
-    //   IconBold: LibraryBoldIcon,
-    // },
-    // { pageName: "LAN", pageLink: "/lan", Icon: LanIcon, IconBold: LanBoldIcon },
+    showMobileSheets && {
+      pageName: "Downloads",
+      func: () => {
+        setSheetTab("downloads");
+        setMobileSheetVisible(true);
+      },
+      Icon: DownloadIcon,
+      IconBold: DownloadIcon,
+    },
+    showMobileSheets && {
+      pageName: "History",
+      func: () => {
+        setSheetTab("history");
+        setMobileSheetVisible(true);
+      },
+      Icon: HistoryIcon,
+      IconBold: HistoryIcon,
+    },
+    tabletAndBelow &&
+      pathname?.includes("/player/") && {
+        pageName: "Playlist",
+        func: () => {
+          // setSheetTab("history");
+          setMobileSheetVisible(true);
+        },
+        Icon: PlayListIcon,
+        IconBold: PlayListIcon,
+      },
     {
       pageName: "Settings",
       pageLink: "/settings",
       Icon: SettingsIcon,
       IconBold: SettingsBoldIcon,
     },
-  ];
+  ].filter(Boolean);
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.backgroundSecondary }]}
+      style={[
+        ,
+        { backgroundColor: theme.backgroundSecondary },
+        tabletAndBelow && { borderColor: theme.accent },
+        tabletAndBelow ? styles.resContainer : styles.container,
+      ]}
     >
       {/* <LibraryIcon color={theme.text} /> */}
       {pages.map((page, i) => {
@@ -52,38 +87,49 @@ export default function NavBar() {
 
         return (
           <Link
-            href={page.pageLink}
+            href={page?.pageLink || "#"}
             style={{
-              width: "100%",
-              borderRightColor: theme.accent,
-              borderRightWidth: isActive ? 5 : 0,
+              width: tabletAndBelow ? "fit-content" : "100%",
+              borderRightColor: !tabletAndBelow ? theme.accent : "transparent",
+              borderRightWidth: !tabletAndBelow && isActive ? 5 : 0,
+              margin: tabletAndBelow ? 10 : 0,
             }}
             key={page.pageName}
             title={page.pageName}
           >
             <Pressable
+              onPress={() => {
+                // call the page.func only when pressed
+                if (typeof page?.func === "function") page.func();
+              }}
               style={({ hovered, pressed }) => [
-                styles.navLinkBox,
+                tabletAndBelow ? styles.resNavLinkBox : styles.navLinkBox,
                 {
                   backgroundColor: isActive
                     ? HEXA(theme.accent, 0.2)
-                    : HEXA(theme.accent, themeMode === "light" ? 0.1 : 0.05),
+                    : !tabletAndBelow
+                    ? HEXA(theme.accent, themeMode === "light" ? 0.1 : 0.05)
+                    : "transparent",
                 },
+
                 hovered && { backgroundColor: HEXA(theme.accent, 0.2) },
               ]}
             >
-              <IconComp color={color} size={18} />
-              <Text
-                style={[
-                  styles.buttonText,
-                  {
-                    color: color,
-                    fontWeight: isActive ? "bold" : "normal",
-                  },
-                ]}
-              >
-                {page.pageName}
-              </Text>
+              <IconComp color={color} size={tabletAndBelow ? 30 : 18} />
+              {!tabletAndBelow && (
+                <Text
+                  style={[
+                    styles.buttonText,
+                    {
+                      color: color,
+                      fontWeight: isActive ? "bold" : "normal",
+                    },
+                    tabletAndBelow && { fontSize: 10 },
+                  ]}
+                >
+                  {page.pageName}
+                </Text>
+              )}
             </Pressable>
           </Link>
         );
@@ -103,9 +149,24 @@ const styles = StyleSheet.create({
     width: "15%",
     paddingTop: 30,
   },
+  resContainer: {
+    position: "fixed",
+    bottom: 0,
+    zIndex: 100,
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-around",
+    borderTopWidth: 1,
+  },
+  resNavLinkBox: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
+    gap: 10,
+    borderRadius: 10,
+  },
   navLinkBox: {
-    // border: "1px solid green",
-
     display: "flex",
     justifyContent: "flex-start",
     alignItems: "center",
