@@ -3,26 +3,105 @@ import { useEffect } from "react";
 import { useRouter } from "expo-router";
 import { shortcuts } from "../lib/shortcuts";
 import { usePlayer } from "./PlayerContext";
+import { useSearch } from "./SearchContext";
 
 export default function ShortcutProvider({ children }) {
   const router = useRouter();
   const player = usePlayer();
+  const search = useSearch();
+
+  const handleSpeedUpOrDown = (type = "") => {
+    const speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+    const currentSpeedIndex = speeds.findIndex(
+      (speed) => speed === player?.playbackRate
+    );
+    let newSpeedIndex = currentSpeedIndex;
+    if (type === "up") {
+      if (currentSpeedIndex < speeds.length - 1) {
+        newSpeedIndex++;
+      }
+    } else if (type === "down") {
+      if (currentSpeedIndex > 0) {
+        newSpeedIndex--;
+      }
+    }
+    player?.setPlaybackRate(
+      speeds[Math.min(Math.max(newSpeedIndex, 0), speeds.length - 1)]
+    );
+  };
+
+  const handleVolumeUpOrDown = (type = "") => {
+    const volumes = [0, 0.25, 0.5, 0.75, 1];
+    const currrenVolumeIndex = volumes.findIndex(
+      (volume) => volume === player?.volumeValue
+    );
+    let newVolumeIndex = currrenVolumeIndex;
+    if (type === "up") {
+      if (currrenVolumeIndex < volumes.length - 1) {
+        newVolumeIndex++;
+      }
+    } else if (type === "down") {
+      if (currrenVolumeIndex > 0) {
+        newVolumeIndex--;
+      }
+    }
+    player?.setVolumeValue(
+      volumes[Math.min(Math.max(newVolumeIndex, 0), volumes.length - 1)]
+    );
+  };
+
+  const handleMuteToggle = () => {
+    const currentVolume = player?.volumeValue;
+    player?.setVolumeValue(currentVolume > 0 ? 0 : currentVolume || 1);
+  };
+
+  const toggleEditMode = () => {
+    const to = `/player/${player?.queue[player?.currentIndex]?.id}?edit=true`;
+    if (router.asPath?.includes("?edit=true")) {
+      window.history.back();
+    } else {
+      player?.closeMini?.();
+      router.push(to);
+    }
+  };
+
+  const handleNextOrPrevSong = (type = "") => {
+    if (!player?.miniVisible) {
+      if (type === "prev") {
+        router.push(`/player/${player?.queue[player?.currentIndex - 1]?.id}`);
+        player?.prev();
+      } else if (type === "next") {
+        player?.next(true);
+      }
+    } else {
+      if (type === "prev") {
+        player?.prev();
+      } else if (type === "next") {
+        player?.next();
+      }
+    }
+  };
 
   const actions = {
-    togglePlay: () => console.log("play/pause"),
-    speedUp: () => console.log("speed up"),
-    speedDown: () => console.log("speed down"),
-    seekForward: () => console.log("seek forward 10s"),
-    seekBackward: () => console.log("seek backward 10s"),
-    volumeUp: () => console.log("volume up"),
-    volumeDown: () => console.log("volume down"),
-    nextSong: () => console.log("next song"),
-    prevSong: () => console.log("prev song"),
-    toggleMute: () => console.log("mute"),
-    toggleEditMode: () => console.log("edit mode"),
-    focusSearch: () => {
-      console.log("Focusing on Search");
-    },
+    togglePlay: () => player?.playPause?.(),
+    speedUp: () => handleSpeedUpOrDown("up"),
+    speedDown: () => handleSpeedUpOrDown("down"),
+    seekForward: () =>
+      player?.seek?.(
+        Math.min(
+          (player?.position || 0) + 10,
+          player?.queue[player?.currentIndex]?.duration
+        )
+      ),
+    seekBackward: () =>
+      player?.seek?.(Math.max((player?.position || 0) - 10, 0)),
+    volumeUp: () => handleVolumeUpOrDown?.("up"),
+    volumeDown: () => handleVolumeUpOrDown?.("down"),
+    nextSong: () => handleNextOrPrevSong("next"),
+    prevSong: () => handleNextOrPrevSong("prev"),
+    toggleMute: () => handleMuteToggle(),
+    toggleEditMode: () => toggleEditMode(),
+    focusSearch: () => search?.focusSearch(),
   };
 
   useEffect(() => {
@@ -37,7 +116,6 @@ export default function ShortcutProvider({ children }) {
 
       const key = e.key.toLowerCase();
       const isShift = e.shiftKey;
-      console.log(tag + " key Pressed");
 
       for (let sc of shortcuts) {
         if (sc.keys.map((k) => k.toLowerCase()).includes(key)) {
@@ -58,7 +136,7 @@ export default function ShortcutProvider({ children }) {
 
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [player, router.pathname]);
+  }, [player, router.pathname, search?.focusSearch]);
 
   return children;
 }

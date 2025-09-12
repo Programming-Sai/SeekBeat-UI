@@ -1,5 +1,5 @@
 // components/BulkSearchInput.jsx
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -25,7 +25,7 @@ export default function BulkSearchInput({
   secondaryPlaceHolder = "Add Search Term...",
 }) {
   const { theme, accentKey, accentColors } = useTheme();
-  const { submitSearch, submitBulk } = useSearch(); // get functions from context
+  const { submitSearch, submitBulk, setFocusSearch } = useSearch(); // get functions from context
   const router = useRouter();
 
   // fields: array of { id, value }
@@ -33,6 +33,32 @@ export default function BulkSearchInput({
   const [focused, setFocused] = useState(false);
 
   const refs = useRef({}); // map id -> input ref
+
+  useEffect(() => {
+    // Register a function that focuses the first field input (current)
+    const focusFn = () => {
+      const firstField = fields?.[0];
+      if (!firstField) return;
+      const ref = refs.current[firstField.id];
+      if (ref && typeof ref.focus === "function") {
+        ref.focus();
+        return;
+      }
+      // fallback: try focusing any available ref
+      const keys = Object.keys(refs.current);
+      if (keys.length) {
+        const maybe = refs.current[keys[0]];
+        if (maybe && typeof maybe.focus === "function") maybe.focus();
+      }
+    };
+
+    setFocusSearch(() => focusFn);
+
+    return () => {
+      // clear to avoid stale closures (optional)
+      setFocusSearch(() => () => {});
+    };
+  }, [setFocusSearch, fields]);
 
   // Helpers
   const focusField = (id) => {

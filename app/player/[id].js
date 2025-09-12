@@ -42,6 +42,7 @@ import { OpenIcon } from "../../components/OpenIcon";
 import Toast from "react-native-toast-message";
 import { useDownloader } from "../../contexts/DownloaderContext";
 import Thumb from "../../components/Thumb";
+import { MutedIcon } from "../../components/MutedIcon";
 
 /**
  * Full Player Page (fixed hook ordering)
@@ -641,8 +642,7 @@ export default function PlayerPage() {
           styles.scroll,
           {
             backgroundColor: HEXA(theme.background, 0.5),
-            // bac
-            // flex: 2,
+            height: "100%",
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -932,7 +932,13 @@ export default function PlayerPage() {
             ]}
           >
             <InlineMenu
-              trigger={<VolumeIcon size={25} color={theme.text} />}
+              trigger={
+                volumeValue === 0 ? (
+                  <MutedIcon size={25} color={theme.text} />
+                ) : (
+                  <VolumeIcon size={25} color={theme.text} />
+                )
+              }
               currentValue={`${displayPercentage(
                 appStorage?.downloadUsePlaybackSettings
                   ? edits?.volume
@@ -1144,7 +1150,7 @@ export default function PlayerPage() {
                 </View>
 
                 <View
-                  style={{ position: "absolute", inset: 0, top: "5%" }}
+                  style={{ position: "absolute", inset: 0, top: "0%" }}
                   pointerEvents="box-none"
                 >
                   <Thumb
@@ -1234,13 +1240,6 @@ export default function PlayerPage() {
 
             <TouchableOpacity
               onPress={() => {
-                // const nextIdx = computeNextIndexForUI();
-                // if (nextIdx === null) return;
-                // router.push(
-                //   `/player/${queue[currentIndex + 1]?.id}${
-                //     isEditor ? "?edit=true" : ""
-                //   }`
-                // );
                 next(true);
               }}
               style={{

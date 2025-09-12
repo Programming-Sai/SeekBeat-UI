@@ -56,7 +56,7 @@ export function SearchProvider({ children, defaultPageSize = 12 }) {
   const [normalized, setNormalized] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-
+  const [focusSearch, setFocusSearch] = useState(() => () => {});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const [viewMode, setViewMode] = useState("list");
@@ -260,6 +260,8 @@ export function SearchProvider({ children, defaultPageSize = 12 }) {
         getPageItems,
         viewMode,
         setViewMode,
+        focusSearch,
+        setFocusSearch,
       }}
     >
       {children}
