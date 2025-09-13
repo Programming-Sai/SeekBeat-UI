@@ -102,6 +102,7 @@ export default function Home() {
               fontWeight: "bold",
               fontSize: 40,
               letterSpacing: 3,
+              textAlign: "center",
             },
           ]}
         >
@@ -117,9 +118,15 @@ export default function Home() {
     <ScrollView
       showsVerticalScrollIndicator={false}
       // contentContainerStyle={{ flex: 1, marginBottom: 100 }}
-      style={[styles.container, { backgroundColor: theme.background }]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.background,
+          paddingHorizontal: tabletAndBelow ? 10 : 20,
+        },
+      ]}
     >
-      <View>
+      <View style={[{ width: "100%" }]}>
         {source.type === "bulk" ? (
           // bulk blocks: if lastSearch was saved it should have the same `blocks` structure
           source.blocks?.map((block) => (
@@ -150,7 +157,6 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     paddingVertical: 200,
     width: "100%",
   },

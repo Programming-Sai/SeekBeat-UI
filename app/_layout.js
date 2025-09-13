@@ -21,7 +21,8 @@ import { ResponsiveProvider } from "../contexts/ResponsiveContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE || "https://fc3e9f335ac4.ngrok-free.app";
 
 export default function Layout() {
   return (

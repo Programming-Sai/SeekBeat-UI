@@ -76,7 +76,10 @@ export default function Header() {
           <Text
             style={[
               {
-                color: theme.accent,
+                color:
+                  themeMode === "dark"
+                    ? accentColors[accentKey].light
+                    : accentColors[accentKey].dark,
                 fontWeight: "bold",
                 fontStyle: "italic",
                 fontSize: 26,
@@ -108,22 +111,6 @@ export default function Header() {
             <Icon key="moon" name="moon" size={20} color={theme.text} />
           )}
         </Pressable>
-
-        <Animated.View
-          style={[
-            {
-              backgroundColor: HEXA(theme.text, 1),
-              width: "3px",
-              height: "3px",
-              position: "absolute",
-              top: 12,
-              right: 12,
-              borderRadius: 100,
-              transform: [{ scale: scaleAnim }],
-              zIndex: hidden ? -100 : 9999,
-            },
-          ]}
-        />
       </View>
       {tabletAndBelow && (
         <View
@@ -140,6 +127,27 @@ export default function Header() {
           />
         </View>
       )}
+      <Animated.View
+        style={[
+          {
+            backgroundColor: HEXA(theme.text, 1),
+            width: "3px",
+            height: "3px",
+            position: "absolute",
+            top: 30,
+            right: tabletAndBelow
+              ? themeMode === "dark"
+                ? 30
+                : 25
+              : themeMode === "dark"
+              ? 40
+              : 35,
+            borderRadius: 100,
+            transform: [{ scale: scaleAnim }],
+            zIndex: hidden ? -100 : 9999,
+          },
+        ]}
+      />
     </View>
   );
 }

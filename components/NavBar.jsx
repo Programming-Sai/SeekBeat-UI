@@ -85,7 +85,7 @@ export default function NavBar() {
             ? accentColors[accentKey].light
             : accentColors[accentKey].dark;
 
-        return (
+        return page?.pageLink ? (
           <Link
             href={page?.pageLink || "#"}
             style={{
@@ -132,6 +132,53 @@ export default function NavBar() {
               )}
             </Pressable>
           </Link>
+        ) : (
+          <View
+            // href={page?.pageLink || "#"}
+            style={{
+              width: tabletAndBelow ? "fit-content" : "100%",
+              borderRightColor: !tabletAndBelow ? theme.accent : "transparent",
+              borderRightWidth: !tabletAndBelow && isActive ? 5 : 0,
+              margin: tabletAndBelow ? 10 : 0,
+            }}
+            key={page.pageName}
+            title={page.pageName}
+          >
+            <Pressable
+              onPress={() => {
+                // call the page.func only when pressed
+                if (typeof page?.func === "function") page.func();
+              }}
+              style={({ hovered, pressed }) => [
+                tabletAndBelow ? styles.resNavLinkBox : styles.navLinkBox,
+                {
+                  backgroundColor: isActive
+                    ? HEXA(theme.accent, 0.2)
+                    : !tabletAndBelow
+                    ? HEXA(theme.accent, themeMode === "light" ? 0.1 : 0.05)
+                    : "transparent",
+                },
+
+                hovered && { backgroundColor: HEXA(theme.accent, 0.2) },
+              ]}
+            >
+              <IconComp color={color} size={tabletAndBelow ? 30 : 18} />
+              {!tabletAndBelow && (
+                <Text
+                  style={[
+                    styles.buttonText,
+                    {
+                      color: color,
+                      fontWeight: isActive ? "bold" : "normal",
+                    },
+                    tabletAndBelow && { fontSize: 10 },
+                  ]}
+                >
+                  {page.pageName}
+                </Text>
+              )}
+            </Pressable>
+          </View>
         );
       })}
     </View>

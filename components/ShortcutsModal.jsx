@@ -9,7 +9,6 @@ export default function ShortcutsModal({
   theme,
   tabletAndBelow,
 }) {
-  console.log(theme.background);
   return (
     <Modal
       visible={visible}

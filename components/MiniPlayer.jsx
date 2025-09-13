@@ -59,8 +59,9 @@ export default function MiniPlayer() {
     0,
     Math.min(1, (playedSofar || 0) / Math.max(1, duration))
   );
-  const { isAtOrBelow, isAtOrAbove } = useResponsive();
+  const { isAtOrBelow } = useResponsive();
   const tabletAndBelow = isAtOrBelow("md", true);
+  const mobileAndBelow = isAtOrBelow("sm");
 
   // dragging state
   const [isDragging, setIsDragging] = useState(false);
@@ -113,7 +114,7 @@ export default function MiniPlayer() {
           borderTopColor: theme.accent,
         },
         tabletAndBelow && {
-          bottom: "9.5%",
+          bottom: mobileAndBelow ? "13%" : "9.5%",
           width: "100%",
           left: 0,
         },
@@ -269,8 +270,7 @@ export default function MiniPlayer() {
 
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
-    bottom: 0,
+    position: "fixed",
     left: "16%",
     right: "26%",
     height: 100,

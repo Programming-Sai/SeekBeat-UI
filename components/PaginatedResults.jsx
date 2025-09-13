@@ -41,6 +41,7 @@ export default function PaginatedResults({
   const { getDownloadStatus } = useAppStorage();
   const { isAtOrBelow } = useResponsive();
   const tabletAndBelow = isAtOrBelow("md", true);
+  const mobileAndBelow = isAtOrBelow("sm", true);
 
   // reset when songs array changes
   useEffect(() => {
@@ -131,7 +132,7 @@ export default function PaginatedResults({
   );
 
   return (
-    <View style={[{ width: "100%" }]}>
+    <View style={[{}]}>
       {/* Render the current page items using your exact markup */}
       <View
         style={[
@@ -152,6 +153,9 @@ export default function PaginatedResults({
                   {
                     backgroundImage: `linear-gradient(90deg, ${theme.background} 10%, ${accentColors[accentKey].dark} 30%)`,
                     border: `2px solid ${accentColors[accentKey].dark}`,
+                    width: tabletAndBelow ? "100%" : "80%",
+                    gap: mobileAndBelow ? 15 : 30,
+                    height: 150,
                   },
                 ]}
               >
@@ -174,7 +178,7 @@ export default function PaginatedResults({
                   </View>
                 </Link>
 
-                <View style={[styles?.details]}>
+                <View style={[styles?.details, { width: "70%" }]}>
                   <View style={[styles?.titleDurationBox]}>
                     <Text
                       style={[
@@ -216,9 +220,12 @@ export default function PaginatedResults({
                                   accentColors[accentKey].dark
                                 ),
                         },
-                        tabletAndBelow && { fontSize: 13, width: 180 },
+                        tabletAndBelow && {
+                          fontSize: 13,
+                          width: mobileAndBelow ? 155 : 250,
+                        },
                       ]}
-                      numberOfLines={2}
+                      numberOfLines={3}
                       ellipsizeMode="tail"
                     >
                       {he.decode(song?.title ?? "")}
@@ -241,7 +248,7 @@ export default function PaginatedResults({
                         tabletAndBelow && { fontSize: 13 },
                       ]}
                     >
-                      {song.uploader} {"  "} ● {"  "}{" "}
+                      {song.uploader} {"  "} ● {"  "}
                       {timeAgo(song.upload_date)}
                     </Text>
                   </View>
@@ -279,7 +286,7 @@ export default function PaginatedResults({
                                     ),
                               textAlign: "center",
                             },
-                            tabletAndBelow && { fontSize: 10 },
+                            tabletAndBelow && { fontSize: 12 },
                           ]}
                         >
                           Play
@@ -320,8 +327,9 @@ export default function PaginatedResults({
                                     ),
                               textAlign: "center",
                             },
-                            tabletAndBelow && { fontSize: 10 },
+                            tabletAndBelow && { fontSize: 12 },
                           ]}
+                          numberOfLines={1}
                         >
                           {getDownloadStatus(song?.id) === "pending"
                             ? "Preparing..."
@@ -532,10 +540,17 @@ export default function PaginatedResults({
             alignItems: "center",
             marginVertical: 50,
             gap: 8,
+            transform: tabletAndBelow ? "scale(0.95)" : "scale(1)",
           }}
         >
           <View>
-            <Text style={{ color: theme.textSecondary, padding: 10 }}>
+            <Text
+              style={{
+                color: theme.textSecondary,
+                padding: 10,
+                paddingHorizontal: tabletAndBelow ? 0 : 10,
+              }}
+            >
               Showing {Math.min((page - 1) * pageSize + 1, total)} -{" "}
               {Math.min(page * pageSize, total)} of {total}
             </Text>
@@ -548,6 +563,7 @@ export default function PaginatedResults({
                   color: page === 1 ? theme.textSecondary : theme.accent,
                   cursor: page === 1 ? "not-allowed" : "pointer",
                   padding: 10,
+                  paddingHorizontal: tabletAndBelow ? 0 : 10,
                 }}
               >
                 First
@@ -560,13 +576,16 @@ export default function PaginatedResults({
                   color: page === 1 ? theme.textSecondary : theme.accent,
                   cursor: page === 1 ? "not-allowed" : "pointer",
                   padding: 10,
+                  paddingHorizontal: tabletAndBelow ? 0 : 10,
                 }}
               >
                 Prev
               </Text>
             </Pressable>
 
-            <Text style={{ color: theme.text, padding: 10 }}>
+            <Text
+              style={{ color: theme.text, padding: 10, paddingHorizontal: 0 }}
+            >
               {page} / {totalPages}
             </Text>
 
@@ -577,6 +596,7 @@ export default function PaginatedResults({
                     page === totalPages ? theme.textSecondary : theme.accent,
                   cursor: page === totalPages ? "not-allowed" : "pointer",
                   padding: 10,
+                  paddingHorizontal: tabletAndBelow ? 0 : 10,
                 }}
               >
                 Next
@@ -593,6 +613,7 @@ export default function PaginatedResults({
                     page === totalPages ? theme.textSecondary : theme.accent,
                   cursor: page === totalPages ? "not-allowed" : "pointer",
                   padding: 10,
+                  paddingHorizontal: tabletAndBelow ? 0 : 10,
                 }}
               >
                 Last
@@ -611,6 +632,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
+    padding: 0,
     gap: 20,
   },
   searchResultsGrid: {
@@ -642,11 +664,9 @@ const styles = StyleSheet.create({
     display: "flex",
     justifyContent: "flex-start",
     alignItems: "center",
-    gap: 30,
     flexDirection: "row",
     padding: 10,
     borderRadius: 20,
-    width: "80%",
   },
   resultCardGrid: {
     display: "flex",
@@ -660,7 +680,6 @@ const styles = StyleSheet.create({
   },
   details: {
     height: 100,
-    width: "70%",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
