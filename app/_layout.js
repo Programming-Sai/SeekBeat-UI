@@ -17,14 +17,20 @@ import { Stack } from "expo-router";
 import { Host } from "react-native-portalize";
 import ShortcutProvider from "../contexts/ShortCutContext";
 import "react-native-gesture-handler";
+import "react-native-reanimated";
 import { ResponsiveProvider } from "../contexts/ResponsiveContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import SplashScreen from "../components/SplashScreen";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "https://fc3e9f335ac4.ngrok-free.app";
+  // process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE || "http://192.168.42.174:8000";
+// process.env.NEXT_PUBLIC_API_BASE || "https://6ca6dcc3340e.ngrok-free.app";
 
 export default function Layout() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -37,7 +43,10 @@ export default function Layout() {
                     <SidebarProvider>
                       <SearchProvider>
                         <ShortcutProvider>
-                          <LayoutContent />
+                          <LayoutContent
+                            showSplash={showSplash}
+                            setShowSplash={setShowSplash}
+                          />
                           <Toast />
                         </ShortcutProvider>
                       </SearchProvider>
@@ -53,24 +62,29 @@ export default function Layout() {
   );
 }
 
-function LayoutContent() {
-  // Theme hook is ok here
+function LayoutContent({ showSplash, setShowSplash }) {
   const { theme } = useTheme();
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.background }}>
-      <Header />
-      <View style={{ flex: 1, flexDirection: "row" }}>
-        <NavBar />
-        <View style={{ flex: 1 }}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Slot />
-          </Stack>
+    <>
+      {showSplash ? (
+        <SplashScreen theme={theme} setShowSplash={setShowSplash} />
+      ) : (
+        <View style={{ flex: 1, backgroundColor: theme.background }}>
+          <Header />
+          <View style={{ flex: 1, flexDirection: "row" }}>
+            <NavBar />
+            <View style={{ flex: 1 }}>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Slot />
+              </Stack>
+            </View>
+            <MiniPlayer />
+            <SideBar />
+          </View>
         </View>
-        <MiniPlayer />
-        <SideBar />
-      </View>
-    </View>
+      )}
+    </>
   );
 }

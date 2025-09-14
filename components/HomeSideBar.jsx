@@ -24,6 +24,7 @@ import { useSearch } from "../contexts/SearchContext";
 import { InlineMenu } from "./InlineMenu"; // <-- new
 import { useDownloader } from "../contexts/DownloaderContext";
 import { usePlayer } from "../contexts/PlayerContext";
+import { useResponsive } from "../contexts/ResponsiveContext";
 
 export const HomeSideBar = ({ tab, setTab }) => {
   const { theme, accentColors, accentKey } = useTheme();
@@ -36,8 +37,9 @@ export const HomeSideBar = ({ tab, setTab }) => {
   } = useAppStorage();
   const { submitSearch } = useSearch();
   const { getQueueIndex } = useDownloader();
-  // const [tab, setTab] = useState("history");
   const { setQueueFromSearchResults, showMiniForIndex } = usePlayer();
+  const { isAtOrBelow } = useResponsive();
+  const mobileAndBelow = isAtOrBelow("sm");
 
   // local state to reflect quick UI changes (delete). Replace with persistence call as needed.
   const [localHistory, setLocalHistory] = useState(data?.searchHistory ?? []);
@@ -146,7 +148,7 @@ export const HomeSideBar = ({ tab, setTab }) => {
           </Text>
         </Pressable>
       </View>
-      <View
+      <ScrollView
         showsVerticalScrollIndicator={false}
         style={[styles.tabContentContainer, {}]}
       >
@@ -170,7 +172,10 @@ export const HomeSideBar = ({ tab, setTab }) => {
                   <View style={[styles.iconText]}>
                     <HistoryIcon color={theme.text} size={20} />
                     <Text
-                      style={{ color: theme.text, width: 250 }}
+                      style={{
+                        color: theme.text,
+                        width: mobileAndBelow ? 100 : 250,
+                      }}
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
@@ -247,7 +252,13 @@ export const HomeSideBar = ({ tab, setTab }) => {
                 </View>
                 <View style={[styles.content, { gap: 10 }]}>
                   <Text
-                    style={[{ color: theme.text, width: 225, fontSize: 12 }]}
+                    style={[
+                      {
+                        color: theme.text,
+                        width: mobileAndBelow ? 190 : 250,
+                        fontSize: 12,
+                      },
+                    ]}
                     ellipsizeMode="tail"
                     numberOfLines={1}
                   >
@@ -293,7 +304,7 @@ export const HomeSideBar = ({ tab, setTab }) => {
             </Text>
           </View>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 };
@@ -329,10 +340,6 @@ const styles = StyleSheet.create({
   tabContentContainer: {
     width: "100%",
     paddingBottom: 50,
-    // height: "-110%",
-    // marginVertical: "1000",
-    // backgroundColor: "red",
-    // height: 1000,
   },
   historyItemBox: {
     display: "flex",

@@ -776,7 +776,13 @@ export default function PlayerPage() {
         </View>
 
         {!isEditor ? (
-          <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
+          <Text
+            style={[
+              styles.title,
+              { color: theme.text, width: "90%" },
+              // { marginVertical: 100, backgroundColor: "red", height: "30" },
+            ]}
+          >
             {he.decode(track.title || "Unknown")}
           </Text>
         ) : (
@@ -1331,7 +1337,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 16,
     textAlign: "center",
-    width: "100%",
   },
   uploader: { fontSize: 13, marginTop: 6 },
   editUploader: {

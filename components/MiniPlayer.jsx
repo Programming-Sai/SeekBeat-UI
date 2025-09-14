@@ -112,9 +112,9 @@ export default function MiniPlayer() {
         {
           backgroundColor: theme.backgroundSecondary,
           borderTopColor: theme.accent,
+          bottom: tabletAndBelow ? (mobileAndBelow ? "13%" : "9.5%") : 0,
         },
         tabletAndBelow && {
-          bottom: mobileAndBelow ? "13%" : "9.5%",
           width: "100%",
           left: 0,
         },

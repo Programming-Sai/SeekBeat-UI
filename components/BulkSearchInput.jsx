@@ -232,7 +232,7 @@ export default function BulkSearchInput({
     >
       {/* Each field is rendered in order */}
       {fields.map((f, idx) => (
-        <View style={[]}>
+        <View key={idx} style={[]}>
           <View
             key={f.id}
             style={[
@@ -269,7 +269,11 @@ export default function BulkSearchInput({
               }
               onKeyPress={({ nativeEvent }) => {
                 // hardware keyboards and some soft keyboards emit key events
-                if (nativeEvent && nativeEvent.key === "Enter") {
+                if (
+                  Platform.OS === "android" &&
+                  nativeEvent &&
+                  nativeEvent.key === "Enter"
+                ) {
                   console.log("onKeyPress Enter", { idx });
                   if (idx === 0) handleSubmit(true);
                   else handleFieldSubmitEditing(idx);

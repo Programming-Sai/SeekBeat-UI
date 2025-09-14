@@ -56,15 +56,23 @@ export default function LoadingSkeleton({
           width={
             displayType === "bulk"
               ? tabletAndBelow
-                ? "100%"
+                ? "90%"
                 : 800
               : viewMode === "list"
               ? tabletAndBelow
-                ? "100%"
+                ? "90%"
                 : 800
               : 250
           }
-          height={displayType === "bulk" ? 50 : viewMode === "list" ? 210 : 380}
+          height={
+            displayType === "bulk"
+              ? 50
+              : viewMode === "list"
+              ? tabletAndBelow
+                ? 150
+                : 210
+              : 380
+          }
           borderRadius={10}
         />
       ))}

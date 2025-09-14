@@ -175,6 +175,7 @@ export function PlayerProvider({ children, streamBase = null }) {
 
   const createAndAttachAudio = useCallback(
     (src, { autoplay = true } = {}) => {
+      console.log("Song Source: ", src);
       if (!src) return null;
       const existing = audioRef.current;
       if (existing && existing.src) {
@@ -282,9 +283,22 @@ export function PlayerProvider({ children, streamBase = null }) {
     const promise = (async () => {
       try {
         const res = await fetch(endpoint, { signal: controller.signal });
-        if (!res.ok) throw new Error("fetch failed: " + res.status);
+        // if (!res.ok) throw new Error("fetch failed: " + res.status);
         const data = await res.json();
-        const src = data?.stream_url ?? data?.streamUrl ?? null;
+        console.log("Data Received: ", data);
+        // inside fetchStreamForKey, after `const data = await res.json();`
+        let src = null;
+
+        // If your backend is reachable (streamBase) use it to stream/proxy the audio
+        // endpoint already equals `${streamBase}/api/stream/<id>/`
+        if (streamBase) {
+          // request the backend endpoint but ask it to stream the audio itself (not return JSON)
+          src = endpoint + (endpoint.includes("?") ? "&" : "?") + "stream=1";
+        } else {
+          // fallback to raw upstream url (not recommended for ngrok/signed url cases)
+          src = data?.stream_url ?? data?.streamUrl ?? null;
+        }
+        console.log("Final Decided Src: ", src);
         if (!src) throw new Error("no stream_url in backend response");
         cacheRef.current.set(key, { src, ts: Date.now() });
         return src;
@@ -301,6 +315,12 @@ export function PlayerProvider({ children, streamBase = null }) {
     (song) => {
       if (!song) return null;
       if (streamBase) {
+        console.log(
+          "Should be streaming from here: ",
+          `${streamBase}/api/stream/${encodeURIComponent(
+            song.id || song.webpage_url || ""
+          )}/`
+        );
         return `${streamBase}/api/stream/${encodeURIComponent(
           song.id || song.webpage_url || ""
         )}/`;
@@ -396,7 +416,7 @@ export function PlayerProvider({ children, streamBase = null }) {
 
       try {
         const src = await fetchStreamForKey(endpoint, key);
-
+        console.log("Retrieved Src: ", src);
         if (thisLoadId !== loadIdRef.current) {
           setLoadingStream(false);
           setIsBuffering(false);
@@ -425,9 +445,9 @@ export function PlayerProvider({ children, streamBase = null }) {
         return audio;
       } catch (err) {
         if (err?.name === "AbortError") {
-          /* aborted */
+          console.warn("Fetch Aborted");
         } else {
-          console.error("Error resolving stream:", err);
+          console.error("Error resolving stream:", err?.name, err);
         }
         setLoadingStream(false);
         setIsBuffering(false);

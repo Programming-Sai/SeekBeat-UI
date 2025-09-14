@@ -7,7 +7,9 @@ import { useAppStorage } from "../contexts/AppStorageContext";
  * - song: object that must contain at least `.id` (or webpage_url) and optionally metadata
  * - edits: optional edits JSON to send in POST body
  */
-export function useDownloader(streamBase = "http://localhost:8000") {
+export function useDownloader(
+  streamBase = "https://6ca6dcc3340e.ngrok-free.app"
+) {
   const { addDownload, updateDownload, setDownloadStatus, getLastSearch } =
     useAppStorage();
 
