@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useAppStorage } from "./AppStorageContext";
 
 /**
  * PlayerContext - adjusted:
@@ -17,7 +18,10 @@ import React, {
 
 const PlayerContext = createContext(null);
 
-export function PlayerProvider({ children, streamBase = null }) {
+export function PlayerProvider({
+  children,
+  streamBase = "https://0bea512690fc.ngrok-free.app",
+}) {
   const [queue, setQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -73,6 +77,8 @@ export function PlayerProvider({ children, streamBase = null }) {
 
   const currentTrack =
     currentIndex >= 0 && queue[currentIndex] ? queue[currentIndex] : null;
+
+  const { forceProxy } = useAppStorage();
 
   const songKeyFor = (song) => {
     if (!song) return null;
@@ -282,7 +288,13 @@ export function PlayerProvider({ children, streamBase = null }) {
     const controller = new AbortController();
     const promise = (async () => {
       try {
-        const res = await fetch(endpoint, { signal: controller.signal });
+        const res = await fetch(endpoint, {
+          signal: controller.signal,
+          headers: {
+            // other headers you need...
+            "ngrok-skip-browser-warning": "true",
+          },
+        });
         // if (!res.ok) throw new Error("fetch failed: " + res.status);
         const data = await res.json();
         console.log("Data Received: ", data);
@@ -291,7 +303,7 @@ export function PlayerProvider({ children, streamBase = null }) {
 
         // If your backend is reachable (streamBase) use it to stream/proxy the audio
         // endpoint already equals `${streamBase}/api/stream/<id>/`
-        if (streamBase) {
+        if (forceProxy) {
           // request the backend endpoint but ask it to stream the audio itself (not return JSON)
           src = endpoint + (endpoint.includes("?") ? "&" : "?") + "stream=1";
         } else {

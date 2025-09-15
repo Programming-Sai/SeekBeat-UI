@@ -23,14 +23,13 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import SplashScreen from "../components/SplashScreen";
 import { hasSeenSplash, markSplashSeen } from "../lib/splashSession";
+import { DownloadProvider } from "../contexts/DownloaderContext";
+import { useBackendUrl } from "../hooks/useBackendUrl";
 
 const API_BASE =
-  // process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
-  process.env.NEXT_PUBLIC_API_BASE || "http://192.168.42.174:8000";
-// process.env.NEXT_PUBLIC_API_BASE || "https://6ca6dcc3340e.ngrok-free.app";
+  process.env.NEXT_PUBLIC_API_BASE || "https://0bea512690fc.ngrok-free.app";
 
 export default function Layout() {
-  // const [showSplash, setShowSplash] = useState(true);
   const [showSplashState, setShowSplashState] = useState(
     () => !hasSeenSplash()
   );
@@ -41,6 +40,7 @@ export default function Layout() {
       markSplashSeen();
     }
   };
+  const { backendUrl } = useBackendUrl(API_BASE);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -49,20 +49,22 @@ export default function Layout() {
           <Host>
             <ThemeProvider>
               <AppStorageProvider>
-                <PlayerProvider streamBase={API_BASE}>
-                  <MenuProvider>
-                    <SidebarProvider>
-                      <SearchProvider>
-                        <ShortcutProvider>
-                          <LayoutContent
-                            showSplash={showSplashState}
-                            setShowSplash={setShowSplash}
-                          />
-                          <Toast />
-                        </ShortcutProvider>
-                      </SearchProvider>
-                    </SidebarProvider>
-                  </MenuProvider>
+                <PlayerProvider streamBase={backendUrl}>
+                  <DownloadProvider downloadBase={backendUrl}>
+                    <MenuProvider>
+                      <SidebarProvider>
+                        <SearchProvider searchBase={backendUrl}>
+                          <ShortcutProvider>
+                            <LayoutContent
+                              showSplash={showSplashState}
+                              setShowSplash={setShowSplash}
+                            />
+                            <Toast />
+                          </ShortcutProvider>
+                        </SearchProvider>
+                      </SidebarProvider>
+                    </MenuProvider>
+                  </DownloadProvider>
                 </PlayerProvider>
               </AppStorageProvider>
             </ThemeProvider>

@@ -50,7 +50,14 @@ function augmentWithId(normalized) {
   return normalized;
 }
 
-export function SearchProvider({ children, defaultPageSize = 12 }) {
+// const searchBase = "https://0bea512690fc.ngrok-free.app";
+// const searchBase = "https://seekbeat.onrender.com";
+
+export function SearchProvider({
+  children,
+  defaultPageSize = 12,
+  searchBase = "https://0bea512690fc.ngrok-free.app",
+}) {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState(null);
   const [normalized, setNormalized] = useState(null);
@@ -73,7 +80,17 @@ export function SearchProvider({ children, defaultPageSize = 12 }) {
     setPage(1);
   }, []);
 
-  // submit single query (call on Enter or Submit button)
+  // diagnostic submitSearch + submitBulk
+  // paste into your SearchContext.js replacing the existing functions
+
+  // helper to read a safe preview of the body
+  async function readBodyPreview(res) {
+    // always read as text (safe) and return first N chars
+    const text = await res.text();
+    const preview = text.slice(0, 1200); // increase if you want larger preview
+    return { text, preview };
+  }
+
   const submitSearch = useCallback(
     async (q = query) => {
       if (!q || !q.trim()) {
@@ -81,7 +98,6 @@ export function SearchProvider({ children, defaultPageSize = 12 }) {
         return;
       }
 
-      // cancel previous
       if (abortRef.current) {
         try {
           abortRef.current.abort();
@@ -93,28 +109,52 @@ export function SearchProvider({ children, defaultPageSize = 12 }) {
       setIsLoading(true);
       setError(null);
 
+      const url = `${searchBase}/api/search/?query=${encodeURIComponent(q)}`;
       try {
-        // NOTE: backend expects `?query=...`
-        const url = `https://seekbeat.onrender.com/api/search/?query=${encodeURIComponent(
-          q
-        )}`;
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) {
-          let txt = `Search failed: ${res.status}`;
-          try {
-            const jsonErr = await res.json();
-            if (jsonErr?.message) txt = jsonErr.message;
-          } catch (_) {}
-          throw new Error(txt);
-        }
-        const json = await res.json();
-        console.log("Search Result: ", json);
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            // other headers you need...
+            "ngrok-skip-browser-warning": "true",
+          },
+        });
+        console.log("[SEARCH] Request URL:", url);
+        console.log("[SEARCH] Response URL (final):", res.url);
+        console.log("[SEARCH] Status:", res.status, res.statusText);
 
+        // log headers
+        console.group("[SEARCH] Response headers");
+        res.headers.forEach((v, k) => console.log(k, ":", v));
+        console.groupEnd();
+
+        const contentType = (
+          res.headers.get("content-type") || ""
+        ).toLowerCase();
+
+        // If not JSON, capture a preview of the body and throw with details
+        if (!contentType.includes("application/json")) {
+          const { preview } = await readBodyPreview(res);
+          const errMsg =
+            `Expected JSON but got "${contentType || "none"}" (status ${
+              res.status
+            }). ` + `Response preview:\n${preview}`;
+          console.error("[SEARCH] Non-JSON response preview:", preview);
+          throw new Error(errMsg);
+        }
+
+        if (!res.ok) {
+          // try to parse JSON error body
+          const jsonErr = await res.json().catch(() => null);
+          const errText = jsonErr?.message || `Search failed: ${res.status}`;
+          throw new Error(errText);
+        }
+
+        const json = await res.json();
+        console.log("[SEARCH] JSON result:", json);
         setResponse(json);
 
         const norm = normalizeSearchResponse(json);
         setNormalized(augmentWithId(norm));
-
         setPage(1);
         try {
           pushSearch && typeof pushSearch === "function" && pushSearch(q);
@@ -134,17 +174,14 @@ export function SearchProvider({ children, defaultPageSize = 12 }) {
     [query, clearResults, pushSearch]
   );
 
-  // submit bulk queries array -> calls your bulk endpoint
   const submitBulk = useCallback(
     async (queries = []) => {
-      // sanitize
       const qarr = (queries || []).map((q) => (q || "").trim()).filter(Boolean);
       if (!qarr.length) {
         clearResults();
         return;
       }
 
-      // cancel previous
       if (abortRef.current) {
         try {
           abortRef.current.abort();
@@ -156,30 +193,50 @@ export function SearchProvider({ children, defaultPageSize = 12 }) {
       setIsLoading(true);
       setError(null);
 
+      const queriesParam = encodeURIComponent(qarr.join(","));
+      const url = `${searchBase}/api/search/bulk/?queries=${queriesParam}`;
+
       try {
-        // join with commas and encode as single param value
-        // backend expects: /api/search/bulk/?queries=rustage%2Cpure%20o%20juice
-        const queriesParam = encodeURIComponent(qarr.join(","));
-        const url = `https://seekbeat.onrender.com/api/search/bulk/?queries=${queriesParam}`;
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) {
-          let txt = `Bulk search failed: ${res.status}`;
-          try {
-            const jsonErr = await res.json();
-            if (jsonErr?.message) txt = jsonErr.message;
-          } catch (_) {}
-          throw new Error(txt);
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            // other headers you need...
+            "ngrok-skip-browser-warning": "true",
+          },
+        });
+        console.log("[BULK SEARCH] Request URL:", url);
+        console.log("[BULK SEARCH] Response URL (final):", res.url);
+        console.log("[BULK SEARCH] Status:", res.status, res.statusText);
+        console.group("[BULK SEARCH] Response headers");
+        res.headers.forEach((v, k) => console.log(k, ":", v));
+        console.groupEnd();
+
+        const contentType = (
+          res.headers.get("content-type") || ""
+        ).toLowerCase();
+        if (!contentType.includes("application/json")) {
+          const { preview } = await readBodyPreview(res);
+          const errMsg = `Expected JSON but got "${
+            contentType || "none"
+          }" (status ${res.status}). Response preview:\n${preview}`;
+          console.error("[BULK SEARCH] Non-JSON response preview:", preview);
+          throw new Error(errMsg);
         }
+
+        if (!res.ok) {
+          const jsonErr = await res.json().catch(() => null);
+          const errText =
+            jsonErr?.message || `Bulk search failed: ${res.status}`;
+          throw new Error(errText);
+        }
+
         const json = await res.json();
-        console.log("Search Result: ", json);
+        console.log("[BULK SEARCH] JSON result:", json);
         setResponse(json);
 
         const norm = normalizeSearchResponse(json);
         setNormalized(augmentWithId(norm));
-
         setPage(1);
-
-        // push each query into history if desired
         try {
           qarr.forEach((q) => {
             pushSearch && typeof pushSearch === "function" && pushSearch(q);

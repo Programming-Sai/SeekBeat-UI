@@ -1,5 +1,5 @@
 // hooks/useDownloader.js
-import { useCallback } from "react";
+import { createContext, useCallback, useContext } from "react";
 import { useAppStorage } from "../contexts/AppStorageContext";
 
 /**
@@ -7,9 +7,12 @@ import { useAppStorage } from "../contexts/AppStorageContext";
  * - song: object that must contain at least `.id` (or webpage_url) and optionally metadata
  * - edits: optional edits JSON to send in POST body
  */
-export function useDownloader(
-  streamBase = "https://6ca6dcc3340e.ngrok-free.app"
-) {
+const DownloadContext = createContext(null);
+
+export function DownloadProvider({
+  children,
+  downloadBase = "https://0bea512690fc.ngrok-free.app",
+}) {
   const { addDownload, updateDownload, setDownloadStatus, getLastSearch } =
     useAppStorage();
 
@@ -49,7 +52,7 @@ export function useDownloader(
 
       try {
         const res = await fetch(
-          `${streamBase}/api/stream/${encodeURIComponent(id)}/`,
+          `${downloadBase}/api/stream/${encodeURIComponent(id)}/`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -103,8 +106,16 @@ export function useDownloader(
         throw err;
       }
     },
-    [addDownload, updateDownload, setDownloadStatus, streamBase]
+    [addDownload, updateDownload, setDownloadStatus, downloadBase]
   );
 
-  return { download, getQueueIndex };
+  const ctx = { download, getQueueIndex };
+  return (
+    <DownloadContext.Provider value={ctx}>{children}</DownloadContext.Provider>
+  );
+}
+
+// hook to read the provider context (returns null if provider not mounted)
+export function useDownloader() {
+  return useContext(DownloadContext);
 }

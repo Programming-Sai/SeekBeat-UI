@@ -15,6 +15,7 @@ import Icon from "react-native-vector-icons/Ionicons";
 import { useSearch } from "../contexts/SearchContext";
 import { useRouter } from "expo-router";
 import Toast from "react-native-toast-message";
+import { useResponsive } from "../contexts/ResponsiveContext";
 
 let idCounter = 1;
 
@@ -27,6 +28,8 @@ export default function BulkSearchInput({
   const { theme, accentKey, accentColors } = useTheme();
   const { submitSearch, submitBulk, setFocusSearch } = useSearch(); // get functions from context
   const router = useRouter();
+  const { isAtOrBelow } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
 
   // fields: array of { id, value }
   const [fields, setFields] = useState(() => [{ id: idCounter++, value: "" }]);
@@ -250,9 +253,8 @@ export default function BulkSearchInput({
               idx === 1 && { position: "relative" },
             ]}
           >
-            {idx === 0 && (
+            {!tabletAndBelow && idx === 0 && (
               <View style={styles.iconBox}>
-                {/* <Text style={{ color: theme.text, fontSize: 16 }}>🔍</Text> */}
                 <Icon size={25} color={theme.accent} name="search" />
               </View>
             )}
@@ -292,6 +294,25 @@ export default function BulkSearchInput({
                 },
               ]}
             />
+
+            {tabletAndBelow && idx === 0 && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.addButton,
+                  styles.iconBox,
+                  {
+                    backgroundColor: pressed
+                      ? HEXA(accent, 0.12)
+                      : "transparent",
+                    borderColor: accent,
+                    marginLeft: tabletAndBelow ? -10 : 8,
+                  },
+                ]}
+                onPress={() => handleSubmit(true)}
+              >
+                <Icon size={25} color={theme.accent} name="search" />
+              </Pressable>
+            )}
 
             {/* Add / Remove icons */}
             {idx === 0 ? (
@@ -406,7 +427,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    marginLeft: 8,
     marginRight: 15,
   },
   addText: {

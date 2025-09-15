@@ -28,6 +28,7 @@ export function AppStorageProvider({ children }) {
     viewMode: "list",
     lastSearch: null,
     downloadUsePlaybackSettings: false,
+    forceProxy: false,
   };
 
   const [data, setData] = useState(defaultData);
@@ -299,6 +300,12 @@ export function AppStorageProvider({ children }) {
     [data]
   );
 
+  const getForceProxy = useCallback(() => !!data.forceProxy, [data]);
+
+  const setForceProxy = useCallback((enabled) => {
+    setData((s) => ({ ...s, forceProxy: !!enabled }));
+  }, []);
+
   return (
     <AppStorageContext.Provider
       value={{
@@ -343,6 +350,10 @@ export function AppStorageProvider({ children }) {
         // download playback setting accessors
         downloadUsePlaybackSettings: getDownloadUsePlaybackSettings(),
         setDownloadUsePlaybackSettings,
+
+        // download playback setting accessors
+        forceProxy: getForceProxy(),
+        setForceProxy,
 
         getSheetTab,
         getMobileSheetVisible: () => {
