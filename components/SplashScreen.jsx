@@ -9,17 +9,18 @@ import Animated, {
 import { useResponsive } from "../contexts/ResponsiveContext";
 import { HEXA } from "../lib/colors";
 
-const GLASS_SIZE = 500; // actual image size
-const RADIUS = GLASS_SIZE * 0.2; // circle radius in px
-const NOTE = GLASS_SIZE * 0.35;
-const OFFSET_X = GLASS_SIZE * 0.07; // 5% of glass width
-const OFFSET_Y = GLASS_SIZE * 0.08;
-
 export default function SplashScreen({ theme, setShowSplash }) {
-  const { width, height } = useResponsive();
+  const { width, height, isAtOrBelow } = useResponsive();
+  const tabletAndBelow = isAtOrBelow("md", true);
   const maskOpacity = useSharedValue(1);
   const textOpacity = useSharedValue(0); // start hidden if you want to fade IN
   const borderOpacity = useSharedValue(0); // border fade IN as well
+
+  const GLASS_SIZE = (tabletAndBelow ? 0.5 : 1) * 500; // actual image size
+  const RADIUS = GLASS_SIZE * 0.2; // circle radius in px
+  const NOTE = GLASS_SIZE * 0.35;
+  const OFFSET_X = GLASS_SIZE * 0.07; // 5% of glass width
+  const OFFSET_Y = GLASS_SIZE * 0.08;
 
   // animate absolute positions in PX
   const xPx = useSharedValue(200);
@@ -47,9 +48,12 @@ export default function SplashScreen({ theme, setShowSplash }) {
     const timeout = setTimeout(() => {
       clearInterval(interval);
       xPx.value = withTiming(width / 2 + 1, { duration: 1500 });
-      yPx.value = withTiming(height / 2 - 35, { duration: 1500 });
+      yPx.value = withTiming(height / 2 - (tabletAndBelow ? 20 : 35), {
+        duration: 1500,
+      });
       // }, 10);
     }, 10000);
+
     const opacityTimeout = setTimeout(() => {
       maskOpacity.value = withTiming(0, {
         duration: 1000,
@@ -73,6 +77,7 @@ export default function SplashScreen({ theme, setShowSplash }) {
       });
       // }, 12);
     }, 12050);
+
     const finishSplashDisplay = setTimeout(() => {
       setShowSplash(false);
     }, 15000);
@@ -136,7 +141,7 @@ export default function SplashScreen({ theme, setShowSplash }) {
               color: theme.accent,
               fontWeight: "bold",
               fontStyle: "italic",
-              fontSize: 30,
+              fontSize: (tabletAndBelow ? 0.8 : 1) * 30,
             },
             textStyle,
           ]}
@@ -151,10 +156,13 @@ export default function SplashScreen({ theme, setShowSplash }) {
           {
             width: RADIUS * 2 * 0.35,
             height: RADIUS * 2 * 0.35,
-            borderWidth: 19,
+            borderWidth: (tabletAndBelow ? 0.5 : 1) * 19,
+            // borderColor: "red",
             borderColor: theme.backgroundSecondary,
             transform: [
-              { translateX: width / 2 + 28 - OFFSET_X },
+              {
+                translateX: width / 2 + (tabletAndBelow ? 15 : 28) - OFFSET_X,
+              },
               { translateY: height / 2 - 3 - OFFSET_Y },
             ],
           },
@@ -175,7 +183,7 @@ export default function SplashScreen({ theme, setShowSplash }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, overflow: "hidden" },
   mask: {
     ...StyleSheet.absoluteFillObject,
     backgroundRepeat: "no-repeat",
