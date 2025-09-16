@@ -103,6 +103,7 @@ export default function Home() {
               fontSize: 40,
               letterSpacing: 3,
               textAlign: "center",
+              padding: 20,
             },
           ]}
         >
