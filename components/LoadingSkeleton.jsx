@@ -16,31 +16,23 @@ export default function LoadingSkeleton({
       style={[
         displayType === "bulk"
           ? {
-              width: "100%",
-              display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               flexDirection: "column",
-              gap: 30,
             }
           : viewMode === "list"
           ? {
-              width: "100%",
-              display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               flexDirection: "column",
-              gap: 30,
             }
           : {
-              width: "100%",
-              display: "flex",
-              justifyContent: "space-between",
+              justifyContent: "center",
               alignItems: "flex-start",
               flexDirection: "row",
               flexWrap: "wrap",
-              gap: 30,
             },
+        { width: "100%", display: "flex", gap: 30 },
       ]}
     >
       {Array.from({ length: displayType === "bulk" ? 3 : 6 }).map((_, id) => (
