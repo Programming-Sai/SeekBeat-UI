@@ -227,7 +227,7 @@ Paste as-is and replace the `↳` placeholders with your real links where noted.
 ### Quick start — Windows (prebuilt `.exe`)
 
 1. Download the latest release from:  
-   **Releases:**[ `https://github.com/Programming-Sai/SeekBeat/releases`](https://github.com/Programming-Sai/SeekBeat/releases) ↳ _replace with actual link_
+   **Releases:**[ `https://github.com/Programming-Sai/SeekBeat/releases`](https://github.com/Programming-Sai/SeekBeat/releases)
 2. Double-click the downloaded `.exe`. A console window will open and the server will print a local URL, for example:
 
 ```text
@@ -283,7 +283,7 @@ If you want to use the backend from a phone outside your LAN:
 
 ### Where to download & support
 
-- **Backend Releases:** [`https://github.com/Programming-Sai/SeekBeat/releases`](https://github.com/Programming-Sai/SeekBeat/releases) ↳ (link)
+- **Backend Releases:** [`https://github.com/Programming-Sai/SeekBeat/releases`](https://github.com/Programming-Sai/SeekBeat/releases)
 - For troubleshooting / issues see the backend repo’s README / Issues tab.
 
 ---
