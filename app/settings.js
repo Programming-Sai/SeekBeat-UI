@@ -19,6 +19,8 @@ import { useShortcuts } from "../contexts/ShortCutContext";
 import { useResponsive } from "../contexts/ResponsiveContext";
 import { useBackendUrl } from "../hooks/useBackendUrl";
 import { HEXA } from "../lib/colors";
+import { ShortCutIcon } from "../components/ShortCutIcon";
+import InfoModal from "../components/InfoModal";
 
 export default function Settings() {
   const { setRightSidebarKey } = useRightSidebar();
@@ -28,6 +30,7 @@ export default function Settings() {
     base: shades.base,
   }));
   const [inputUrl, setInputUrl] = useState("");
+  const [openInfoModal, setsetOpenInfoModal] = useState(false);
   const { setShowShortcuts } = useShortcuts();
   const {
     saveSearchHistory,
@@ -41,12 +44,9 @@ export default function Settings() {
     forceProxy,
     setForceProxy,
   } = useAppStorage();
-  const { isAtOrBelow, isBetween, isAtOrAbove } = useResponsive();
-  const betweenTabletAndLaptop = isBetween("md", "lg");
+  const { isAtOrBelow } = useResponsive();
   const mobileAndBelow = isAtOrBelow("sm");
-  const tabletAndAbove = isAtOrAbove("md", true);
   const laptopAndBelow = isAtOrBelow("xl");
-  const laptopAndAbove = isAtOrAbove("xl", true);
   const tabletAndBelow = isAtOrBelow("md", true);
 
   const {
@@ -113,7 +113,7 @@ export default function Settings() {
   };
 
   const handleResetURL = () => {
-    if (confirm("Restore the default URL (http://127.0.0.1:8000)?")) {
+    if (confirm("Restore the default URL (https://seekbeat.onrender.com)?")) {
       try {
         resetBackendUrl();
         // optionally show toast/snackbar
@@ -578,6 +578,14 @@ export default function Settings() {
                   gap: 10, // RN 0.71+ supports gap; otherwise use margin
                 }}
               >
+                <TouchableOpacity onPress={() => setsetOpenInfoModal(true)}>
+                  <InfoIcon size={30} color={theme.accent} />
+                </TouchableOpacity>
+                <InfoModal
+                  visible={openInfoModal}
+                  onClose={() => setsetOpenInfoModal(false)}
+                  theme={theme}
+                />
                 <TextInput
                   value={inputUrl}
                   onChangeText={setInputUrl}
@@ -595,7 +603,7 @@ export default function Settings() {
                     color: theme.text,
                   }}
                   placeholderTextColor={theme.textSecondary}
-                  placeholder={backendUrl || "http://localhost:8000"}
+                  placeholder={backendUrl || "https://seekbeat.onrender.com"}
                 />
 
                 <TouchableOpacity
@@ -751,8 +759,16 @@ export default function Settings() {
               </Text>
             </View>
             <View style={styles.settingDescSet}>
-              <TouchableOpacity onPress={() => setShowShortcuts(true)}>
-                <InfoIcon size={50} color={theme.accent} />
+              <TouchableOpacity
+                onPress={() => setShowShortcuts(true)}
+                style={{
+                  padding: 10,
+                  borderWidth: 1,
+                  borderColor: theme.accent,
+                  borderRadius: 100,
+                }}
+              >
+                <ShortCutIcon size={50} color={theme.accent} />
               </TouchableOpacity>
             </View>
           </View>

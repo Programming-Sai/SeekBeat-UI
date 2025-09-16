@@ -1,6 +1,7 @@
 // hooks/useDownloader.js
 import { createContext, useCallback, useContext } from "react";
 import { useAppStorage } from "../contexts/AppStorageContext";
+import { isNgrokUrl } from "../lib/utils";
 
 /**
  * useDownloader - returns a `download` function to trigger backend POST download.
@@ -9,10 +10,7 @@ import { useAppStorage } from "../contexts/AppStorageContext";
  */
 const DownloadContext = createContext(null);
 
-export function DownloadProvider({
-  children,
-  downloadBase = "https://0bea512690fc.ngrok-free.app",
-}) {
+export function DownloadProvider({ children, downloadBase = null }) {
   const { addDownload, updateDownload, setDownloadStatus, getLastSearch } =
     useAppStorage();
 
@@ -50,12 +48,18 @@ export function DownloadProvider({
       // set transient/persistent status (pending)
       setDownloadStatus(id, "pending");
 
+      const headers = {};
+      if (isNgrokUrl(downloadBase)) {
+        headers["ngrok-skip-browser-warning"] = "true";
+      }
+      headers["Content-Type"] = "application/json";
+
       try {
         const res = await fetch(
           `${downloadBase}/api/stream/${encodeURIComponent(id)}/`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify({ edits: edits || {} }),
           }
         );

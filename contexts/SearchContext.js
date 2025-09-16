@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { normalizeSearchResponse } from "../lib/utils";
+import { isNgrokUrl, normalizeSearchResponse } from "../lib/utils";
 import { useAppStorage } from "./AppStorageContext";
 
 const SearchContext = createContext(null);
@@ -56,7 +56,7 @@ function augmentWithId(normalized) {
 export function SearchProvider({
   children,
   defaultPageSize = 12,
-  searchBase = "https://0bea512690fc.ngrok-free.app",
+  searchBase = null,
 }) {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState(null);
@@ -110,13 +110,14 @@ export function SearchProvider({
       setError(null);
 
       const url = `${searchBase}/api/search/?query=${encodeURIComponent(q)}`;
+      const headers = {};
+      if (isNgrokUrl(searchBase)) {
+        headers["ngrok-skip-browser-warning"] = "true";
+      }
       try {
         const res = await fetch(url, {
           signal: controller.signal,
-          headers: {
-            // other headers you need...
-            "ngrok-skip-browser-warning": "true",
-          },
+          headers,
         });
         console.log("[SEARCH] Request URL:", url);
         console.log("[SEARCH] Response URL (final):", res.url);
@@ -166,6 +167,7 @@ export function SearchProvider({
           console.error("Search error:", err);
           setError(err.message || String(err));
         }
+        console.log("Sorry Something went wrong: ", String(err), url);
       } finally {
         setIsLoading(false);
         abortRef.current = null;

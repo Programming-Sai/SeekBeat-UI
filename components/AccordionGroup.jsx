@@ -10,7 +10,7 @@ export default function AccordionGroup({
   viewMode = "list",
   initiallyExpanded = false,
 }) {
-  console.log("Accordion: ", block);
+  // console.log("Accordion: ", block);
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const { theme } = useTheme();
   const termText = block?.search_term?.query ?? "Search";

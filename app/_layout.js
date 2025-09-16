@@ -27,7 +27,7 @@ import { DownloadProvider } from "../contexts/DownloaderContext";
 import { useBackendUrl } from "../hooks/useBackendUrl";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "https://0bea512690fc.ngrok-free.app";
+  process.env.NEXT_PUBLIC_API_BASE || "https://seekbeat.onrender.com";
 
 export default function Layout() {
   const [showSplashState, setShowSplashState] = useState(

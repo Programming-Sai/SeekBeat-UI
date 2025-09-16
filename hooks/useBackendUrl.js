@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 const STORAGE_KEY = "seekbeat:backend_base";
-const DEFAULT_BACKEND = "http://127.0.0.1:8000";
+const DEFAULT_BACKEND = "https://seekbeat.onrender.com";
 
 // simple in-window pubsub so multiple hook instances in same document sync immediately
 const backendEventTarget =

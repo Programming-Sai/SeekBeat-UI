@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import { useAppStorage } from "./AppStorageContext";
+import { isNgrokUrl } from "../lib/utils";
 
 /**
  * PlayerContext - adjusted:
@@ -18,10 +19,7 @@ import { useAppStorage } from "./AppStorageContext";
 
 const PlayerContext = createContext(null);
 
-export function PlayerProvider({
-  children,
-  streamBase = "https://0bea512690fc.ngrok-free.app",
-}) {
+export function PlayerProvider({ children, streamBase = null }) {
   const [queue, setQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -287,13 +285,14 @@ export function PlayerProvider({
 
     const controller = new AbortController();
     const promise = (async () => {
+      const headers = {};
+      if (isNgrokUrl(streamBase)) {
+        headers["ngrok-skip-browser-warning"] = "true";
+      }
       try {
         const res = await fetch(endpoint, {
           signal: controller.signal,
-          headers: {
-            // other headers you need...
-            "ngrok-skip-browser-warning": "true",
-          },
+          headers,
         });
         // if (!res.ok) throw new Error("fetch failed: " + res.status);
         const data = await res.json();
@@ -327,12 +326,6 @@ export function PlayerProvider({
     (song) => {
       if (!song) return null;
       if (streamBase) {
-        console.log(
-          "Should be streaming from here: ",
-          `${streamBase}/api/stream/${encodeURIComponent(
-            song.id || song.webpage_url || ""
-          )}/`
-        );
         return `${streamBase}/api/stream/${encodeURIComponent(
           song.id || song.webpage_url || ""
         )}/`;
