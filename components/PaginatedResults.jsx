@@ -39,8 +39,12 @@ export default function PaginatedResults({
   } = usePlayer();
   const { download } = useDownloader(); // default streamBase baked in or pass your base
   const { getDownloadStatus } = useAppStorage();
-  const { isAtOrBelow } = useResponsive();
+  const { isAtOrBelow, isBetween, isAtOrAbove } = useResponsive();
   const tabletAndBelow = isAtOrBelow("md", true);
+  const betweenTabletAndLaptop = isBetween("md", "lg");
+  const laptopAndBelow = isAtOrBelow("lg");
+  const laptopAndAbove = isAtOrAbove("lg", true);
+
   const mobileAndBelow = isAtOrBelow("sm", true);
 
   // reset when songs array changes
@@ -153,8 +157,14 @@ export default function PaginatedResults({
                   {
                     backgroundImage: `linear-gradient(90deg, ${theme.background} 10%, ${accentColors[accentKey].dark} 30%)`,
                     border: `2px solid ${accentColors[accentKey].dark}`,
-                    width: tabletAndBelow ? "100%" : "80%",
-                    gap: mobileAndBelow ? 15 : 30,
+                    width:
+                      laptopAndBelow || tabletAndBelow || betweenTabletAndLaptop
+                        ? "100%"
+                        : "80%",
+                    gap:
+                      laptopAndBelow || mobileAndBelow || betweenTabletAndLaptop
+                        ? 15
+                        : 30,
                     height: 150,
                   },
                 ]}

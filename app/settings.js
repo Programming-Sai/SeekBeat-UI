@@ -14,7 +14,6 @@ import Switch from "../components/Switch";
 import { useAppStorage } from "../contexts/AppStorageContext";
 import TabbedSwitch from "../components/TabbedSwitch";
 import Toast from "react-native-toast-message";
-import ShortCutsTable from "../components/ShortCutsTable";
 import { InfoIcon } from "../components/InfoIcon";
 import { useShortcuts } from "../contexts/ShortCutContext";
 import { useResponsive } from "../contexts/ResponsiveContext";
@@ -42,9 +41,14 @@ export default function Settings() {
     forceProxy,
     setForceProxy,
   } = useAppStorage();
-  const { isAtOrBelow } = useResponsive();
+  const { isAtOrBelow, isBetween, isAtOrAbove } = useResponsive();
+  const betweenTabletAndLaptop = isBetween("md", "lg");
   const mobileAndBelow = isAtOrBelow("sm");
+  const tabletAndAbove = isAtOrAbove("md", true);
+  const laptopAndBelow = isAtOrBelow("xl");
+  const laptopAndAbove = isAtOrAbove("xl", true);
   const tabletAndBelow = isAtOrBelow("md", true);
+
   const {
     backendUrl,
     setBackendUrl, // async normalization/validation
@@ -210,7 +214,7 @@ export default function Settings() {
           <View
             style={[
               styles.settingBoxContainer,
-              tabletAndBelow && { flexDirection: "column" },
+              laptopAndBelow && { flexDirection: "column" },
               { border: `1px solid ${theme.textSecondary}`, padding: 20 },
             ]}
           >
@@ -218,14 +222,14 @@ export default function Settings() {
               style={[
                 styles.settingDescSet,
                 { alignItems: "flex-start" },
-                tabletAndBelow && { width: "50%" },
+                laptopAndBelow && { width: "50%" },
               ]}
             >
               <Text
                 style={[
                   styles.settingHeading,
                   { color: theme.text },
-                  tabletAndBelow && { textAlign: "center", width: "100%" },
+                  laptopAndBelow && { textAlign: "center", width: "100%" },
                 ]}
               >
                 Set Accent Color
@@ -234,19 +238,27 @@ export default function Settings() {
                 style={[
                   styles.settingSecondary,
                   { color: theme.textSecondary },
-                  tabletAndBelow && { textAlign: "center", width: "100%" },
+                  laptopAndBelow && {
+                    textAlign: "center",
+                    width: "100%",
+                  },
                 ]}
               >
                 Pick the accent used across the app (buttons, highlights, and
                 active states).
               </Text>
             </View>
-            <View style={styles.settingDescSet}>
+            <View
+              style={[
+                styles.settingDescSet,
+                { marginLeft: !laptopAndBelow ? "-10%" : 0 },
+              ]}
+            >
               <ColorPicker
                 colors={colors}
                 setColor={setAccent}
                 theme={theme}
-                tabletAndBelow={tabletAndBelow}
+                tabletAndBelow={laptopAndBelow}
               />
             </View>
           </View>
@@ -393,13 +405,21 @@ export default function Settings() {
                 tabletAndBelow && { width: "50%" },
               ]}
             >
-              <Text style={[styles.settingHeading, { color: theme.text }]}>
+              <Text
+                style={[
+                  styles.settingHeading,
+                  { width: laptopAndBelow ? 200 : "auto", color: theme.text },
+                ]}
+              >
                 Mirror Playback Speed/Volume
               </Text>
               <Text
                 style={[
                   styles.settingSecondary,
-                  { color: theme.textSecondary },
+                  {
+                    width: laptopAndBelow ? 200 : "auto",
+                    color: theme.textSecondary,
+                  },
                 ]}
               >
                 When enabled, Downloads automatically mirror the current speed
@@ -475,13 +495,22 @@ export default function Settings() {
                 tabletAndBelow && { width: "50%" },
               ]}
             >
-              <Text style={[styles.settingHeading, { color: theme.text }]}>
+              <Text
+                style={[
+                  styles.settingHeading,
+                  { width: laptopAndBelow ? 200 : "auto", color: theme.text },
+                ]}
+              >
                 Always proxy streams
               </Text>
               <Text
                 style={[
                   styles.settingSecondary,
-                  { color: theme.textSecondary, maxWidth: "50rem" },
+                  {
+                    width: laptopAndBelow ? 200 : "auto",
+                    color: theme.textSecondary,
+                    maxWidth: "50rem",
+                  },
                 ]}
               >
                 {
@@ -518,13 +547,21 @@ export default function Settings() {
                 tabletAndBelow && { width: "50%" },
               ]}
             >
-              <Text style={[styles.settingHeading, { color: theme.text }]}>
+              <Text
+                style={[
+                  styles.settingHeading,
+                  { width: laptopAndBelow ? 200 : "auto", color: theme.text },
+                ]}
+              >
                 Set Backend Connection URL
               </Text>
               <Text
                 style={[
                   styles.settingSecondary,
-                  { color: theme.textSecondary },
+                  {
+                    width: laptopAndBelow ? 200 : "auto",
+                    color: theme.textSecondary,
+                  },
                   mobileAndBelow ? { width: "100%" } : { maxWidth: "50rem" },
                 ]}
               >
@@ -594,13 +631,21 @@ export default function Settings() {
                 tabletAndBelow && { width: "50%" },
               ]}
             >
-              <Text style={[styles.settingHeading, { color: theme.text }]}>
+              <Text
+                style={[
+                  styles.settingHeading,
+                  { width: laptopAndBelow ? 200 : "auto", color: theme.text },
+                ]}
+              >
                 Reset Backend onnection URL to default
               </Text>
               <Text
                 style={[
                   styles.settingSecondary,
-                  { color: theme.textSecondary },
+                  {
+                    width: laptopAndBelow ? 200 : "auto",
+                    color: theme.textSecondary,
+                  },
                 ]}
               >
                 {
@@ -641,13 +686,21 @@ export default function Settings() {
                 tabletAndBelow && { width: "50%" },
               ]}
             >
-              <Text style={[styles.settingHeading, { color: theme.text }]}>
+              <Text
+                style={[
+                  styles.settingHeading,
+                  { width: laptopAndBelow ? 200 : "auto", color: theme.text },
+                ]}
+              >
                 Clear Backend Connection URL
               </Text>
               <Text
                 style={[
                   styles.settingSecondary,
-                  { color: theme.textSecondary },
+                  {
+                    width: laptopAndBelow ? 200 : "auto",
+                    color: theme.textSecondary,
+                  },
                 ]}
               >
                 Deletes the stored backend URL from local storage. Use this to

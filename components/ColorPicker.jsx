@@ -18,6 +18,7 @@ export default function ColorPicker({
           width: tabletAndBelow ? "auto" : "80%",
           marginVertical: tabletAndBelow ? 20 : 0,
           gap: tabletAndBelow ? 50 : "auto",
+          // border: "2px solid red",
         },
       ]}
     >

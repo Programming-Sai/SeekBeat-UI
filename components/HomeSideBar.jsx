@@ -38,8 +38,12 @@ export const HomeSideBar = ({ tab, setTab }) => {
   const { submitSearch } = useSearch();
   const { getQueueIndex } = useDownloader();
   const { setQueueFromSearchResults, showMiniForIndex } = usePlayer();
-  const { isAtOrBelow } = useResponsive();
+  const { isAtOrBelow, isBetween, isAtOrAbove } = useResponsive();
+  const betweenTabletAndLaptop = isBetween("md", "lg");
   const mobileAndBelow = isAtOrBelow("sm");
+  const tabletAndAbove = isAtOrAbove("md", true);
+  const laptopAndBelow = isAtOrBelow("lg");
+  const laptopAndAbove = isAtOrAbove("xl", true);
 
   // local state to reflect quick UI changes (delete). Replace with persistence call as needed.
   const [localHistory, setLocalHistory] = useState(data?.searchHistory ?? []);
@@ -100,7 +104,10 @@ export const HomeSideBar = ({ tab, setTab }) => {
       <View
         style={[
           styles.tabBar,
-          { backgroundColor: HEXA(accentColors[accentKey].light, 0.3) },
+          {
+            backgroundColor: HEXA(accentColors[accentKey].light, 0.3),
+            transform: [{ scale: betweenTabletAndLaptop ? 0.8 : 1 }],
+          },
         ]}
       >
         <Pressable
@@ -174,7 +181,13 @@ export const HomeSideBar = ({ tab, setTab }) => {
                     <Text
                       style={{
                         color: theme.text,
-                        width: mobileAndBelow ? 100 : 250,
+                        width: laptopAndAbove
+                          ? 200 // 💻 big screens first
+                          : mobileAndBelow
+                          ? 100 // 📱 small screens next
+                          : betweenTabletAndLaptop
+                          ? 80 // 🪄 tablet window
+                          : 150, // default (sm to md)
                       }}
                       numberOfLines={1}
                       ellipsizeMode="tail"
@@ -220,7 +233,12 @@ export const HomeSideBar = ({ tab, setTab }) => {
                 key={idx}
                 style={[
                   styles.downloadItemBox,
-                  { backgroundColor: theme.background },
+                  {
+                    backgroundColor: theme.background,
+                    justifyContent: laptopAndBelow
+                      ? "flex-start"
+                      : "space-between",
+                  },
                 ]}
               >
                 <View style={[styles.imageBox]}>
@@ -244,7 +262,7 @@ export const HomeSideBar = ({ tab, setTab }) => {
                         // color={accentColors[accentKey].dark}
                       />
                     </View>
-                  )}{" "}
+                  )}
                   <Image
                     style={[styles.image]}
                     source={{ uri: download?.song?.largest_thumbnail }}
@@ -255,7 +273,13 @@ export const HomeSideBar = ({ tab, setTab }) => {
                     style={[
                       {
                         color: theme.text,
-                        width: mobileAndBelow ? 190 : 250,
+                        width: laptopAndAbove
+                          ? 200 // 💻 big screens first
+                          : mobileAndBelow
+                          ? 150 // 📱 small screens next
+                          : betweenTabletAndLaptop
+                          ? 70 // 🪄 tablet window
+                          : 100, // default (sm to md)
                         fontSize: 12,
                       },
                     ]}
@@ -264,14 +288,35 @@ export const HomeSideBar = ({ tab, setTab }) => {
                   >
                     {he.decode(download?.song?.title)}
                   </Text>
-                  <View style={[styles.metadata]}>
+                  <View
+                    style={[
+                      styles.metadata,
+                      {
+                        justifyContent: tabletAndAbove
+                          ? "flex-start"
+                          : "space-between",
+                      },
+                    ]}
+                  >
                     <Text
                       style={[{ color: theme.textSecondary, fontSize: 12 }]}
                     >
                       {formatTime(download?.song?.duration)}
                     </Text>
                     <Text
-                      style={[{ color: theme.textSecondary, fontSize: 12 }]}
+                      style={[
+                        {
+                          color: theme.textSecondary,
+                          fontSize: 12,
+                          width: laptopAndAbove
+                            ? "100%"
+                            : betweenTabletAndLaptop
+                            ? 30
+                            : 70,
+                        },
+                      ]}
+                      ellipsizeMode="tail"
+                      numberOfLines={1}
                     >
                       {download?.song?.uploader}
                     </Text>
@@ -353,7 +398,7 @@ const styles = StyleSheet.create({
   },
   iconText: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     alignItems: "center",
     flexDirection: "row",
     gap: 20,
@@ -366,7 +411,7 @@ const styles = StyleSheet.create({
   },
   downloadItemBox: {
     display: "flex",
-    justifyContent: "space-between",
+    // justifyContent: "space-between",
     alignItems: "center",
     flexDirection: "row",
     gap: 10,

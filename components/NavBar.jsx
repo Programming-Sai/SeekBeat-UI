@@ -23,8 +23,9 @@ export default function NavBar() {
   const { theme, themeMode, accentColors, accentKey } = useTheme();
   const pathname = usePathname();
   const { setSheetTab, setMobileSheetVisible } = useAppStorage();
-  const { isAtOrBelow, isAtOrAbove } = useResponsive();
+  const { isAtOrBelow, isBetween } = useResponsive();
   const tabletAndBelow = isAtOrBelow("md", true);
+  const betweenTabletAndLaptop = isBetween("md", "lg");
   const showMobileSheets = tabletAndBelow && pathname === "/";
 
   const pages = [
@@ -115,7 +116,9 @@ export default function NavBar() {
                 hovered && { backgroundColor: HEXA(theme.accent, 0.2) },
               ]}
             >
-              <IconComp color={color} size={tabletAndBelow ? 30 : 18} />
+              {!betweenTabletAndLaptop && (
+                <IconComp color={color} size={tabletAndBelow ? 30 : 18} />
+              )}
               {!tabletAndBelow && (
                 <Text
                   style={[
