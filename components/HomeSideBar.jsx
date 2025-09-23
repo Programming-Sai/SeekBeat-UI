@@ -8,7 +8,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  ImageBackground,
   ActivityIndicator,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
@@ -28,18 +27,13 @@ import { useResponsive } from "../contexts/ResponsiveContext";
 
 export const HomeSideBar = ({ tab, setTab }) => {
   const { theme, accentColors, accentKey } = useTheme();
-  const {
-    data,
-    removeSearchAt,
-    removeDownload,
-    getLastSearch,
-    getDownloadStatus,
-  } = useAppStorage();
+  const { data, removeSearchAt, removeDownload, getDownloadStatus } =
+    useAppStorage();
   const { submitSearch } = useSearch();
-  const { getQueueIndex } = useDownloader();
-  const { setQueueFromSearchResults, showMiniForIndex } = usePlayer();
+  const { setQueueFromSearchResults, showMiniForIndex, playIndex } =
+    usePlayer();
   const { isAtOrBelow, isBetween, isAtOrAbove } = useResponsive();
-  const betweenTabletAndLaptop = isBetween("md", "lg");
+  const betweenTabletAndLaptop = isBetween("sm", "lg");
   const mobileAndBelow = isAtOrBelow("sm");
   const tabletAndAbove = isAtOrAbove("md", true);
   const laptopAndBelow = isAtOrBelow("lg");
@@ -78,16 +72,19 @@ export const HomeSideBar = ({ tab, setTab }) => {
   };
 
   const playDownload = (download) => {
-    const idx = download?.queueIndex ?? getQueueIndex(download?.id);
-    console.log(
-      `Playing: ${download?.song?.title} at index: ${idx}, ${
-        getLastSearch()?.items?.length
-      }`
+    const idx = downloads.findIndex(
+      (songs) =>
+        songs?.id === download?.id ||
+        songs?.webpage_url === download?.webpage_url
     );
 
+    const downloadQueue = Object.values(downloads || {})?.map(
+      (song) => song?.song
+    );
     // idx = (page - 1) * pageSize + idx;
-    setQueueFromSearchResults([download?.song], /*startIndex=*/ 0); // sets queue and currentIndex to idx
-    showMiniForIndex(0, true); // opens the mini player but doesn't auto-play
+    setQueueFromSearchResults(downloadQueue, /*startIndex=*/ idx); // sets queue and currentIndex to idx
+    playIndex(idx);
+    showMiniForIndex(idx, true, true); // opens the mini player but doesn't auto-play
   };
 
   // const onPlay = (idx) => {};
@@ -100,7 +97,12 @@ export const HomeSideBar = ({ tab, setTab }) => {
   };
 
   return (
-    <View style={[styles.container, {}]}>
+    <View
+      style={[
+        styles.container,
+        betweenTabletAndLaptop && { padding: 0, gap: 10 },
+      ]}
+    >
       <View
         style={[
           styles.tabBar,
@@ -238,13 +240,14 @@ export const HomeSideBar = ({ tab, setTab }) => {
                     justifyContent: laptopAndBelow
                       ? "flex-start"
                       : "space-between",
+                    transform: [{ scale: betweenTabletAndLaptop ? 0.8 : 1 }],
+                    width: "100%",
                   },
                 ]}
               >
                 <View style={[styles.imageBox]}>
                   {getDownloadStatus(download?.id) === "pending" && (
                     <View
-                      // source={{ uri: download?.song?.largest_thumbnail }}
                       style={{
                         zIndex: 250,
                         position: "absolute",
@@ -256,11 +259,7 @@ export const HomeSideBar = ({ tab, setTab }) => {
                         placeContent: "center",
                       }}
                     >
-                      <ActivityIndicator
-                        size={25}
-                        color={theme.text}
-                        // color={accentColors[accentKey].dark}
-                      />
+                      <ActivityIndicator size={25} color={theme.text} />
                     </View>
                   )}
                   <Image
@@ -268,18 +267,12 @@ export const HomeSideBar = ({ tab, setTab }) => {
                     source={{ uri: download?.song?.largest_thumbnail }}
                   />
                 </View>
-                <View style={[styles.content, { gap: 10 }]}>
+                <View style={[styles.content, { gap: 10, width: "70%" }]}>
                   <Text
                     style={[
                       {
                         color: theme.text,
-                        width: laptopAndAbove
-                          ? 200 // 💻 big screens first
-                          : mobileAndBelow
-                          ? 150 // 📱 small screens next
-                          : betweenTabletAndLaptop
-                          ? 70 // 🪄 tablet window
-                          : 100, // default (sm to md)
+                        width: "100%",
                         fontSize: 12,
                       },
                     ]}
@@ -308,11 +301,7 @@ export const HomeSideBar = ({ tab, setTab }) => {
                         {
                           color: theme.textSecondary,
                           fontSize: 12,
-                          width: laptopAndAbove
-                            ? "100%"
-                            : betweenTabletAndLaptop
-                            ? 30
-                            : 70,
+                          width: "100%",
                         },
                       ]}
                       ellipsizeMode="tail"

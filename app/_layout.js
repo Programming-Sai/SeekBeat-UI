@@ -40,7 +40,7 @@ export default function Layout() {
       markSplashSeen();
     }
   };
-  const { backendUrl } = useBackendUrl(API_BASE);
+  const { backendUrl, defaultUrl } = useBackendUrl(API_BASE);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -53,7 +53,10 @@ export default function Layout() {
                   <DownloadProvider downloadBase={backendUrl}>
                     <MenuProvider>
                       <SidebarProvider>
-                        <SearchProvider searchBase={backendUrl}>
+                        <SearchProvider
+                          searchBase={backendUrl}
+                          defaultSearchBase={defaultUrl}
+                        >
                           <ShortcutProvider>
                             <LayoutContent
                               showSplash={showSplashState}

@@ -1,6 +1,13 @@
 // PlayerSideBar.js
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { StyleSheet, Text, View, Image, TouchableOpacity } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  TouchableOpacity,
+  Pressable,
+} from "react-native";
 import DraggableFlatList, {
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
@@ -10,23 +17,21 @@ import he from "he";
 import formatTime, { timeAgo } from "../lib/utils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppStorage } from "../contexts/AppStorageContext";
-import { HEXA } from "../lib/colors";
+import { getPrimaryTextColor, HEXA } from "../lib/colors";
+import { useResponsive } from "../contexts/ResponsiveContext";
 
 const ITEM_HEIGHT = 70;
 
 export const PlayerSideBar = ({ edit }) => {
-  const { theme } = useTheme();
+  const { theme, accentColors, accentKey } = useTheme();
   const {
     queue = [],
     currentIndex,
     playIndex,
     reorderQueue,
-    setCurrentIndex,
     setQueue,
-    cleanupAudio,
-    setPosition,
   } = usePlayer();
-  const { getLastSearch } = useAppStorage();
+  const { getLastSearch, getPlayerTab, setPlayerTab } = useAppStorage();
   const router = useRouter();
   const [localData, setLocalData] = useState(queue || []);
   const listRef = useRef(null);
@@ -34,6 +39,8 @@ export const PlayerSideBar = ({ edit }) => {
   const layoutReadyRef = useRef(false);
   const { id } = useLocalSearchParams();
   const isEditor = !!edit;
+  const { isAtOrBelow, isBetween, isAtOrAbove } = useResponsive();
+  const betweenTabletAndLaptop = isBetween("sm", "lg");
 
   useEffect(() => {
     if (!mountedRef.current) {
@@ -102,6 +109,7 @@ export const PlayerSideBar = ({ edit }) => {
     const delay = layoutReadyRef.current ? 50 : 250;
     const t = setTimeout(() => scrollToIndexSafe(currentIndex), delay);
     return () => clearTimeout(t);
+    // }, []);
   }, [currentIndex, scrollToIndexSafe]);
 
   const keyExtractor = useCallback((item, index) => {
@@ -126,12 +134,9 @@ export const PlayerSideBar = ({ edit }) => {
               router.push?.(
                 `/player/${item?.id ?? index}${isEditor ? "?edit=true" : ""}`
               );
-              // cleanupAudio();
-              // setPosition(0);
-              // setCurrentIndex(index);
-              console.log("Index to be played: ", index, currentIndex);
+              // console.log("Index to be played: ", index, currentIndex);
               playIndex(index);
-              console.log("Index to be played: ", index, currentIndex);
+              // console.log("Index to be played: ", index, currentIndex);
             }}
             onLongPress={drag}
             disabled={isActive}
@@ -198,6 +203,63 @@ export const PlayerSideBar = ({ edit }) => {
       onLayout={onContainerLayout}
       style={[styles.container, { backgroundColor: theme.backgroundSecondary }]}
     >
+      <View
+        style={[
+          styles.tabBar,
+          {
+            backgroundColor: HEXA(accentColors[accentKey].light, 0.3),
+            transform: [{ scale: betweenTabletAndLaptop ? 0.8 : 1 }],
+            marginBottom: "10%",
+            marginHorizontal: "auto",
+          },
+        ]}
+      >
+        <Pressable
+          onPress={() => setPlayerTab("searchResults")}
+          style={[
+            styles.tab,
+            getPlayerTab() === "searchResults" && {
+              backgroundColor: accentColors[accentKey].dark,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              {
+                color:
+                  getPlayerTab() === "searchResults"
+                    ? getPrimaryTextColor(accentColors[accentKey].dark)
+                    : theme.text,
+                whiteSpace: "nowrap",
+              },
+            ]}
+          >
+            Search Results
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setPlayerTab("downloads")}
+          style={[
+            styles.tab,
+            getPlayerTab() === "downloads" && {
+              backgroundColor: accentColors[accentKey].dark,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              {
+                color:
+                  getPlayerTab() === "downloads"
+                    ? getPrimaryTextColor(accentColors[accentKey].dark)
+                    : theme.text,
+              },
+            ]}
+          >
+            Downloads
+          </Text>
+        </Pressable>
+      </View>
       <DraggableFlatList
         ref={listRef}
         data={localData}
@@ -242,4 +304,22 @@ const styles = StyleSheet.create({
   title: { fontSize: 14, fontWeight: "500" },
   subtitle: { fontSize: 12 },
   empty: { padding: 16, alignItems: "center", justifyContent: "center" },
+  tabBar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    width: "fit-content",
+    borderRadius: 50,
+    padding: 3,
+  },
+  tab: {
+    padding: 10,
+    borderRadius: 50,
+    width: 100,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+  },
 });

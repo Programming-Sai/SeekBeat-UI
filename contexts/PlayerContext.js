@@ -51,6 +51,10 @@ export function PlayerProvider({ children, streamBase = null }) {
     queueRef.current = queue;
   }, [queue]);
 
+  const showDownloadsRef = useRef(false);
+
+  const setShowDownloads = (v) => (showDownloadsRef.current = v);
+
   const currentIndexRef = useRef(currentIndex);
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -558,7 +562,6 @@ export function PlayerProvider({ children, streamBase = null }) {
             isEditor ? "?edit=true" : ""
           }`
         );
-        console.log("Pushing to this id: ", queueRef.current[nextIdx]?.id);
       }
     },
     [cleanupAudio, playIndex, shuffle, repeatMode, router, isEditor]
@@ -657,7 +660,7 @@ export function PlayerProvider({ children, streamBase = null }) {
   }, []);
 
   const showMiniForIndex = useCallback(
-    (idx, shouldPlay = false) => {
+    (idx, shouldPlay = false, shouldShowDownloads = false) => {
       if (!Array.isArray(queueRef.current) || queueRef.current.length === 0) {
         setMiniVisible(false);
         return;
@@ -672,6 +675,7 @@ export function PlayerProvider({ children, streamBase = null }) {
       }
       setCurrentIndex(idx);
       setPosition(0);
+      // if (!shouldShowDownloads) setShowDownloads(shouldShowDownloads);
       setMiniVisible(true);
       if (shouldPlay) playIndex(idx);
     },
@@ -852,6 +856,8 @@ export function PlayerProvider({ children, streamBase = null }) {
     _streamCache: () => Array.from(cacheRef.current.entries()),
     isBuffering,
     cleanupAudio,
+    showDownloads: () => showDownloadsRef.current,
+    setShowDownloads,
   };
 
   return (

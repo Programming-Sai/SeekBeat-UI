@@ -203,5 +203,6 @@ export function useBackendUrl(defaultUrl = DEFAULT_BACKEND) {
     clearBackendUrl,
     getBackendUrlSync,
     isDefault,
+    defaultUrl: DEFAULT_BACKEND,
   };
 }

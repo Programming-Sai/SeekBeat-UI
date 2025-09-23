@@ -57,6 +57,7 @@ export function SearchProvider({
   children,
   defaultPageSize = 12,
   searchBase = null,
+  defaultSearchBase = null,
 }) {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState(null);
@@ -68,7 +69,9 @@ export function SearchProvider({
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const [viewMode, setViewMode] = useState("list");
 
-  const { pushSearch } = useAppStorage ? useAppStorage() : { pushSearch: null };
+  const { pushSearch, useLocalbackendBaseForSearch } = useAppStorage
+    ? useAppStorage()
+    : { pushSearch: null };
 
   const abortRef = useRef(null);
 
@@ -109,9 +112,11 @@ export function SearchProvider({
       setIsLoading(true);
       setError(null);
 
-      const url = `${searchBase}/api/search/?query=${encodeURIComponent(q)}`;
+      const url = `${
+        useLocalbackendBaseForSearch ? defaultSearchBase : searchBase
+      }/api/search/?query=${encodeURIComponent(q)}`;
       const headers = {};
-      if (isNgrokUrl(searchBase)) {
+      if (isNgrokUrl(searchBase) && !useLocalbackendBaseForSearch) {
         headers["ngrok-skip-browser-warning"] = "true";
       }
       try {
@@ -196,15 +201,17 @@ export function SearchProvider({
       setError(null);
 
       const queriesParam = encodeURIComponent(qarr.join(","));
-      const url = `${searchBase}/api/search/bulk/?queries=${queriesParam}`;
-
+      const url = `${
+        useLocalbackendBaseForSearch ? defaultSearchBase : searchBase
+      }/api/search/bulk/?queries=${queriesParam}`;
+      const headers = {};
+      if (isNgrokUrl(searchBase) && !useLocalbackendBaseForSearch) {
+        headers["ngrok-skip-browser-warning"] = "true";
+      }
       try {
         const res = await fetch(url, {
           signal: controller.signal,
-          headers: {
-            // other headers you need...
-            "ngrok-skip-browser-warning": "true",
-          },
+          headers,
         });
         console.log("[BULK SEARCH] Request URL:", url);
         console.log("[BULK SEARCH] Response URL (final):", res.url);

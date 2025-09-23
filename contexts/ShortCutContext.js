@@ -78,7 +78,11 @@ export default function ShortcutProvider({ children }) {
   const handleNextOrPrevSong = (type = "") => {
     if (!player?.miniVisible) {
       if (type === "prev") {
-        router.push(`/player/${player?.queue[player?.currentIndex - 1]?.id}`);
+        router.push(
+          `/player/${player?.queue[player?.currentIndex - 1]?.id}${
+            player?.isEditor ? "?edit=true" : ""
+          }`
+        );
         player?.prev();
       } else if (type === "next") {
         player?.next(true);

@@ -25,10 +25,12 @@ export function AppStorageProvider({ children }) {
     playlists: {},
     mobileSheeVisible: false,
     sheetTab: "history",
+    playerTab: "searchResults",
     viewMode: "list",
     lastSearch: null,
     downloadUsePlaybackSettings: false,
     forceProxy: false,
+    useLocalbackendBaseForSearch: true,
   };
 
   const [data, setData] = useState(defaultData);
@@ -295,6 +297,10 @@ export function AppStorageProvider({ children }) {
 
   const setSheetTab = (tab) => setData((s) => ({ ...s, sheetTab: tab }));
 
+  const getPlayerTab = () => data.playerTab;
+
+  const setPlayerTab = (tab) => setData((s) => ({ ...s, playerTab: tab }));
+
   const getDownloadUsePlaybackSettings = useCallback(
     () => !!data.downloadUsePlaybackSettings,
     [data]
@@ -304,6 +310,15 @@ export function AppStorageProvider({ children }) {
 
   const setForceProxy = useCallback((enabled) => {
     setData((s) => ({ ...s, forceProxy: !!enabled }));
+  }, []);
+
+  const getUseLocalbackendBaseForSearch = useCallback(
+    () => !!data.useLocalbackendBaseForSearch,
+    [data]
+  );
+
+  const setUseLocalbackendBaseForSearch = useCallback((enabled) => {
+    setData((s) => ({ ...s, useLocalbackendBaseForSearch: !!enabled }));
   }, []);
 
   return (
@@ -355,10 +370,15 @@ export function AppStorageProvider({ children }) {
         forceProxy: getForceProxy(),
         setForceProxy,
 
+        useLocalbackendBaseForSearch: getUseLocalbackendBaseForSearch(),
+        setUseLocalbackendBaseForSearch,
+
         getSheetTab,
         getMobileSheetVisible: () => {
           return mobileSheetVisible;
         },
+        getPlayerTab,
+        setPlayerTab,
         setSheetTab,
         setMobileSheetVisible,
       }}

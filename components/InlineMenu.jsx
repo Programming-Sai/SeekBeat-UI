@@ -58,7 +58,12 @@ export const InlineMenu = ({
               },
             ]}
           >
-            <Text style={[styles.option, { color: theme.text }]}>
+            <Text
+              style={[
+                styles.option,
+                { color: opt.label === "Delete" ? "red" : theme.text },
+              ]}
+            >
               {opt.label}
             </Text>
           </MenuOption>

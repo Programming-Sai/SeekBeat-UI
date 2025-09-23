@@ -21,6 +21,8 @@ import { useBackendUrl } from "../hooks/useBackendUrl";
 import { HEXA } from "../lib/colors";
 import { ShortCutIcon } from "../components/ShortCutIcon";
 import InfoModal from "../components/InfoModal";
+import { CopyIcon } from "../components/CopyIcon";
+import * as Clipboard from "expo-clipboard";
 
 export default function Settings() {
   const { setRightSidebarKey } = useRightSidebar();
@@ -43,6 +45,8 @@ export default function Settings() {
     setDownloadUsePlaybackSettings,
     forceProxy,
     setForceProxy,
+    useLocalbackendBaseForSearch,
+    setUseLocalbackendBaseForSearch,
   } = useAppStorage();
   const { isAtOrBelow } = useResponsive();
   const mobileAndBelow = isAtOrBelow("sm");
@@ -194,6 +198,16 @@ export default function Settings() {
           autoHide: true,
         });
       }
+    }
+  };
+
+  const copyItem = (term) => {
+    try {
+      Clipboard.setStringAsync(term);
+      // small feedback
+      window.alert(`${term} copied to clipboard`);
+    } catch (e) {
+      console.warn("Clipboard error", e);
     }
   };
 
@@ -537,6 +551,57 @@ export default function Settings() {
               styles.settingBoxContainer,
               { border: `1px solid ${theme.textSecondary}`, padding: 20 },
               { borderBottomWidth: 0 },
+            ]}
+          >
+            <View
+              style={[
+                styles.settingDescSet,
+                { alignItems: "flex-start" },
+                tabletAndBelow && { width: "50%" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.settingHeading,
+                  { width: laptopAndBelow ? 200 : "auto", color: theme.text },
+                ]}
+              >
+                Use hosted backend url for search
+              </Text>
+              <Text
+                style={[
+                  styles.settingSecondary,
+                  {
+                    width: laptopAndBelow ? 200 : "auto",
+                    color: theme.textSecondary,
+                    maxWidth: "50rem",
+                  },
+                ]}
+              >
+                {
+                  "When enabled, the app defaults to the hosted backend url for searching, otherwise what ever base you set is what would be used."
+                }
+              </Text>
+            </View>
+            <View style={styles.settingDescSet}>
+              <Switch
+                value={useLocalbackendBaseForSearch}
+                setValue={(v) => setUseLocalbackendBaseForSearch(v)}
+                theme={themeMode}
+                accent={theme.accent}
+                accentLight={accentColors[accentKey].light}
+                accentDark={accentColors[accentKey].dark}
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.settingBox]}>
+          <View
+            style={[
+              styles.settingBoxContainer,
+              { border: `1px solid ${theme.textSecondary}`, padding: 20 },
+              { borderBottomWidth: 0 },
               mobileAndBelow && { flexDirection: "column", gap: 30 },
             ]}
           >
@@ -578,9 +643,21 @@ export default function Settings() {
                   gap: 10, // RN 0.71+ supports gap; otherwise use margin
                 }}
               >
-                <TouchableOpacity onPress={() => setsetOpenInfoModal(true)}>
-                  <InfoIcon size={30} color={theme.accent} />
-                </TouchableOpacity>
+                <View
+                  style={[{ display: "flex", flexDirection: "row", gap: 5 }]}
+                >
+                  <TouchableOpacity
+                    onPress={() =>
+                      copyItem(backendUrl || "https://seekbeat.onrender.com")
+                    }
+                  >
+                    <CopyIcon size={30} color={theme.accent} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setsetOpenInfoModal(true)}>
+                    <InfoIcon size={30} color={theme.accent} />
+                  </TouchableOpacity>
+                </View>
+
                 <InfoModal
                   visible={openInfoModal}
                   onClose={() => setsetOpenInfoModal(false)}

@@ -8,11 +8,13 @@ import { PlayerSideBar } from "./PlayerSideBar";
 import { useResponsive } from "../contexts/ResponsiveContext";
 import BottomSheet from "./BottomSheetModal";
 import { useAppStorage } from "../contexts/AppStorageContext";
+import { usePlayer } from "../contexts/PlayerContext";
 
 export default function SideBar() {
   const { rightSidebarKey } = useRightSidebar();
   const { theme } = useTheme();
-  const { isAtOrBelow } = useResponsive();
+  const { isAtOrBelow, isBetween } = useResponsive();
+  const betweenTabletAndLaptop = isBetween("sm", "lg");
   const tabletAndBelow = isAtOrBelow("md", true);
   const {
     getSheetTab,
@@ -64,6 +66,7 @@ export default function SideBar() {
       style={[
         tabletAndBelow ? styles.mobileContainer : styles.container,
         { backgroundColor: theme.backgroundSecondary },
+        betweenTabletAndLaptop && { width: "30%" },
       ]}
     >
       {SidebarComponent && <SidebarComponent />}

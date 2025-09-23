@@ -34,8 +34,6 @@ import { VolumeIcon } from "../../components/VolumeIcon";
 import { DownloadIcon } from "../../components/DownloadIcon";
 import { EditIcon } from "../../components/EditIcon";
 import { InlineMenu } from "../../components/InlineMenu";
-import { MoreIcon } from "../../components/MoreIcon";
-import { useSearchParams } from "expo-router/build/hooks";
 import * as ImagePicker from "expo-image-picker";
 import MultiSlider from "@ptomasroos/react-native-multi-slider";
 import { OpenIcon } from "../../components/OpenIcon";
@@ -100,7 +98,8 @@ export default function PlayerPage() {
     normalized: null,
     isLoading: false,
   };
-  const { getLastSearch, getDownloadStatus } = appStorage ?? {};
+  const { getLastSearch, getDownloadStatus, getDownloads, getPlayerTab } =
+    appStorage ?? {};
 
   // safe references to player methods (may be undefined until player exists)
 
@@ -204,15 +203,24 @@ export default function PlayerPage() {
   useEffect(() => {
     // Only perform side-effects if the functions exist.
     const last = getLastSearch?.();
-    if (last?.items) {
-      setQueueSafe?.(last.items);
+    if (!last) return;
+    const showDownloads = getPlayerTab() === "downloads";
+
+    if (showDownloads) {
+      setQueueSafe?.(
+        Object.values(getDownloads?.() || {}).map((song) => song?.song)
+      );
+    } else {
+      setQueueSafe?.(
+        last.items || last.blocks.flatMap((block) => block.results || [])
+      );
     }
-    // console.log("QUEUE: ", queue);
+
     setRightSidebarKey?.(isEditor ? "playerEdit" : "player");
     return () => setRightSidebarKey?.(null);
     // intentionally minimal deps; these refs are stable-ish (functions from context)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [getLastSearch, getDownloads]);
 
   // helper for search-derived "flat" items (optional)
   const flat = useMemo(() => queue, [queue]);
